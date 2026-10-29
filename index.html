@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sunset Vibes — Red Social del Evento</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            burgundy: {
+              950: '#1C0510',
+              900: '#2A0818',
+              800: '#4A0E2E',
+              700: '#681842',
+            },
+            nude: {
+              100: '#F9ECEE',
+              200: '#F2D7D9',
+              300: '#E8B4B8',
+              400: '#D4959A',
+            },
+            sunset: {
+              gold: '#F59E0B',
+              coral: '#FB7185',
+            }
+          },
+          fontFamily: {
+            serif: ['"Playfair Display"', 'serif'],
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #1C0510;
+      color: #FFFFFF;
+      overflow-x: hidden;
+    }
+    .sunset-bg {
+      background: radial-gradient(circle at 50% 15%, rgba(251, 113, 133, 0.28) 0%, rgba(232, 180, 184, 0.14) 30%, rgba(74, 14, 46, 0.92) 70%, #1C0510 100%);
+    }
+    .glass-card {
+      background: rgba(74, 14, 46, 0.55);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(232, 180, 184, 0.25);
+    }
+    .glass-nav {
+      background: rgba(28, 5, 16, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(232, 180, 184, 0.2);
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    @keyframes pulse-slow {
+      0%, 100% { transform: scale(1); opacity: 0.9; }
+      50% { transform: scale(1.04); opacity: 1; }
+    }
+    .animate-sunset { animation: pulse-slow 5s infinite ease-in-out; }
+  </style>
+</head>
+<body class="sunset-bg min-h-screen text-white selection:bg-nude-300 selection:text-burgundy-950">
+
+  <div id="root"></div>
+
+  <!-- React & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Babel para JSX en navegador -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Firebase Modular SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { 
+      getAuth, 
+      GoogleAuthProvider, 
+      signInWithPopup, 
+      signOut as fbSignOut, 
+      onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { 
+      getFirestore, 
+      collection, 
+      doc, 
+      setDoc, 
+      addDoc, 
+      updateDoc, 
+      deleteDoc, 
+      onSnapshot, 
+      query, 
+      orderBy, 
+      arrayUnion, 
+      arrayRemove 
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // Tus credenciales reales de Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyASRyF6gzetEzPIBN-1ED_5M_X6pjft4nw",
+      authDomain: "sunset-vibess.firebaseapp.com",
+      projectId: "sunset-vibess",
+      storageBucket: "sunset-vibess.firebasestorage.app",
+      messagingSenderId: "318152436326",
+      appId: "1:318152436326:web:5152fba6916ad505009ba7",
+      measurementId: "G-7LFGEPP334"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const googleProvider = new GoogleAuthProvider();
+
+    window.FB = {
+      auth, db, googleProvider,
+      signInWithPopup, fbSignOut, onAuthStateChanged,
+      collection, doc, setDoc, addDoc, updateDoc, deleteDoc,
+      onSnapshot, query, orderBy, arrayUnion, arrayRemove
+    };
+    window.dispatchEvent(new Event("firebase-ready"));
+  </script>
+
+  <!-- Aplicación Completa en React -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    const ADMIN_EMAIL = "joellpethers@gmail.com";
+
+    // Los 10 Retos Fotográficos al azar (No obligatorios)
+    const PHOTO_CHALLENGES = [
+      { id: 1, title: "El Brindis Dorado", desc: "Sube una foto chocando tu vaso o copa con el atardecer de fondo.", emoji: "🥂" },
+      { id: 2, title: "Silueta contra el Sol", desc: "Captura la silueta de alguien bailando o riendo frente a la luz.", emoji: "🌅" },
+      { id: 3, title: "Look Sunset", desc: "Presume tu outfit, gafas de sol o el detalle más cool que lleves puesto.", emoji: "🕶️" },
+      { id: 4, title: "Selfie con un Desconocido", desc: "Sácate una foto divertida con alguien que acabas de conocer hoy.", emoji: "🤳" },
+      { id: 5, title: "Manos al Cielo", desc: "Captura el momento cuando todos levanten las manos con la música.", emoji: "🙌" },
+      { id: 6, title: "Risa Espontánea", desc: "Fotografía a un amigo o invitado riendo sin que se dé cuenta.", emoji: "😂" },
+      { id: 7, title: "El Rincón más Aesthetic", desc: "Muestra tu decoración, luces o rincón favorito de la fiesta.", emoji: "✨" },
+      { id: 8, title: "Foto Grupal Épica", desc: "Reúne a 3 o más personas y hagan su pose más creativa.", emoji: "📸" },
+      { id: 9, title: "Reflejos en tus Gafas", desc: "Una foto de cerca donde se vea reflejada la fiesta o el cielo.", emoji: "🔥" },
+      { id: 10, title: "El Rey o Reina de la Pista", desc: "Captura los mejores pasos prohibidos de la noche.", emoji: "💃" }
+    ];
+
+    const INSPIRATIONAL_QUOTES = [
+      "“Los mejores atardeceres son los que se comparten. Captura cada instante.”",
+      "“Hoy el cielo se viste de rosa y borgoña. ¡Haz que esta noche sea eterna!”",
+      "“Congela las sonrisas, los brindis y la magia de este Sunset.”"
+    ];
+
+    // Función para comprimir imágenes a Base64 ligero (< 220KB) para Firestore sin pagar Storage
+    const compressImageToBase64 = (file, maxWidth = 850, quality = 0.72) => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+          const img = new Image();
+          img.src = event.target.result;
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            let width = img.width;
+            let height = img.height;
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL("image/jpeg", quality);
+            resolve(dataUrl);
+          };
+          img.onerror = (err) => reject(err);
+        };
+        reader.onerror = (err) => reject(err);
+      });
+    };
+
+    function SunsetVibesApp() {
+      const [fbReady, setFbReady] = useState(!!window.FB);
+      const [currentUser, setCurrentUser] = useState(null);
+      const [users, setUsers] = useState([]);
+      const [posts, setPosts] = useState([]);
+      const [stories, setStories] = useState([]);
+      const [messages, setMessages] = useState([]);
+      const [activeTab, setActiveTab] = useState("feed"); // feed | profile | friends | admin
+      const [quoteIndex, setQuoteIndex] = useState(0);
+
+      // Reto actual al azar del usuario
+      const [currentChallenge, setCurrentChallenge] = useState(() => 
+        PHOTO_CHALLENGES[Math.floor(Math.random() * PHOTO_CHALLENGES.length)]
+      );
+
+      // Modales
+      const [uploadModal, setUploadModal] = useState({ open: false, type: "post", withChallenge: false });
+      const [selectedStory, setSelectedStory] = useState(null);
+      const [qrModalOpen, setQrModalOpen] = useState(false);
+      const [activeChatFriend, setActiveChatFriend] = useState(null);
+
+      // Estados de formulario de subida
+      const [previewMedia, setPreviewMedia] = useState("");
+      const [caption, setCaption] = useState("");
+      const [isSubmitting, setIsSubmitting] = useState(false);
+      const [commentInputs, setCommentInputs] = useState({});
+      const [chatText, setChatText] = useState("");
+      const [customLoginName, setCustomLoginName] = useState("");
+      const [customLoginEmail, setCustomLoginEmail] = useState("");
+      const [authError, setAuthError] = useState("");
+
+      // URL editable para el logo del Sunset (puedes cambiarla por la ruta de tu logo cuando quieras)
+      const [logoUrl, setLogoUrl] = useState("");
+
+      // Rotación de frases en el login
+      useEffect(() => {
+        const timer = setInterval(() => {
+          setQuoteIndex((prev) => (prev + 1) % INSPIRATIONAL_QUOTES.length);
+        }, 4500);
+        return () => clearInterval(timer);
+      }, []);
+
+      // Esperar carga de Firebase
+      useEffect(() => {
+        if (window.FB) {
+          setFbReady(true);
+        } else {
+          const handleReady = () => setFbReady(true);
+          window.addEventListener("firebase-ready", handleReady);
+          return () => window.removeEventListener("firebase-ready", handleReady);
+        }
+      }, []);
+
+      // Escuchar sesión y colecciones de Firestore en tiempo real
+      useEffect(() => {
+        if (!fbReady || !window.FB) return;
+        const { auth, db, onAuthStateChanged, collection, onSnapshot, query, orderBy, doc, setDoc } = window.FB;
+
+        const unsubAuth = onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            const profileData = {
+              uid: user.uid,
+              name: user.displayName || user.email.split("@")[0],
+              email: user.email.toLowerCase(),
+              avatar: user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`,
+              friends: [],
+              updatedAt: Date.now()
+            };
+            try {
+              await setDoc(doc(db, "users", user.uid), profileData, { merge: true });
+            } catch (e) {
+              console.warn("Aviso guardando usuario en Firestore:", e);
+            }
+            setCurrentUser(profileData);
+          } else {
+            const savedGuest = localStorage.getItem("sunset_local_user");
+            if (savedGuest) {
+              setCurrentUser(JSON.parse(savedGuest));
+            } else {
+              setCurrentUser(null);
+            }
+          }
+        });
+
+        const unsubUsers = onSnapshot(collection(db, "users"), (snap) => {
+          const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setUsers(list);
+        });
+
+        const unsubPosts = onSnapshot(query(collection(db, "posts"), orderBy("createdAt", "desc")), (snap) => {
+          const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setPosts(list);
+        });
+
+        const unsubStories = onSnapshot(query(collection(db, "stories"), orderBy("createdAt", "desc")), (snap) => {
+          const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setStories(list);
+        });
+
+        const unsubMessages = onSnapshot(query(collection(db, "messages"), orderBy("createdAt", "asc")), (snap) => {
+          const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setMessages(list);
+        });
+
+        return () => {
+          unsubAuth();
+          unsubUsers();
+          unsubPosts();
+          unsubStories();
+          unsubMessages();
+        };
+      }, [fbReady]);
+
+      // Sincronizar lista de amigos del usuario actual
+      const currentUserDoc = useMemo(() => {
+        if (!currentUser) return null;
+        return users.find(u => u.uid === currentUser.uid) || currentUser;
+      }, [users, currentUser]);
+
+      const isAdmin = currentUserDoc?.email?.toLowerCase() === ADMIN_EMAIL;
+
+      // Función para cambiar de reto al azar ("Pasar reto")
+      const nextRandomChallenge = () => {
+        const available = PHOTO_CHALLENGES.filter(c => c.id !== currentChallenge.id);
+        const random = available[Math.floor(Math.random() * available.length)];
+        setCurrentChallenge(random);
+      };
+
+      // Iniciar sesión con Google Real
+      const handleGoogleLogin = async () => {
+        setAuthError("");
+        if (!window.FB) return;
+        const { auth, googleProvider, signInWithPopup } = window.FB;
+        try {
+          await signInWithPopup(auth, googleProvider);
+        } catch (err) {
+          console.error("Error en Google Popup:", err);
+          setAuthError("Para que el popup de Google abra en tu dominio nuevo, recuerda agregar tu URL en Firebase Console > Authentication > Settings > Dominios autorizados. También puedes ingresar abajo con tu nombre y correo.");
+        }
+      };
+
+      // Registro directo con Correo (por si algún invitado no recuerda su clave o entra desde navegador integrado de Instagram/WhatsApp)
+      const handleQuickEmailLogin = async (e) => {
+        e.preventDefault();
+        if (!customLoginName.trim() || !customLoginEmail.trim()) return;
+        const cleanEmail = customLoginEmail.trim().toLowerCase();
+        const uid = "user_" + btoa(cleanEmail).replace(/[^a-zA-Z0-9]/g, "").slice(0, 16);
+        const newProfile = {
+          uid,
+          name: customLoginName.trim(),
+          email: cleanEmail,
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`,
+          friends: [],
+          updatedAt: Date.now()
+        };
+        localStorage.setItem("sunset_local_user", JSON.stringify(newProfile));
+        setCurrentUser(newProfile);
+        if (window.FB) {
+          const { db, doc, setDoc } = window.FB;
+          try {
+            await setDoc(doc(db, "users", uid), newProfile, { merge: true });
+          } catch (err) {
+            console.warn("Error guardando perfil en Firestore:", err);
+          }
+        }
+      };
+
+      // Cerrar sesión
+      const handleLogout = async () => {
+        localStorage.removeItem("sunset_local_user");
+        if (window.FB) {
+          try {
+            await window.FB.fbSignOut(window.FB.auth);
+          } catch (e) {}
+        }
+        setCurrentUser(null);
+        setActiveTab("feed");
+      };
+
+      // Seleccionar y comprimir foto desde cámara o galería
+      const handleFileChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+          const compressed = await compressImageToBase64(file);
+          setPreviewMedia(compressed);
+        } catch (err) {
+          alert("No se pudo procesar la imagen. Intenta con otra foto.");
+        }
+      };
+
+      // Publicar Foto o Historia en Firestore
+      const handlePublish = async (e) => {
+        e.preventDefault();
+        if (!previewMedia || !currentUserDoc || isSubmitting) return;
+        setIsSubmitting(true);
+        const { db, collection, addDoc } = window.FB;
+
+        try {
+          if (uploadModal.type === "story") {
+            await addDoc(collection(db, "stories"), {
+              userId: currentUserDoc.uid,
+              userName: currentUserDoc.name,
+              userEmail: currentUserDoc.email,
+              userAvatar: currentUserDoc.avatar,
+              mediaUrl: previewMedia,
+              caption: caption.trim(),
+              createdAt: Date.now()
+            });
+          } else {
+            await addDoc(collection(db, "posts"), {
+              userId: currentUserDoc.uid,
+              userName: currentUserDoc.name,
+              userEmail: currentUserDoc.email,
+              userAvatar: currentUserDoc.avatar,
+              mediaUrl: previewMedia,
+              caption: caption.trim(),
+              challengeTitle: uploadModal.withChallenge ? `${currentChallenge.emoji} ${currentChallenge.title}` : null,
+              likes: [],
+              comments: [],
+              createdAt: Date.now()
+            });
+          }
+          setPreviewMedia("");
+          setCaption("");
+          setUploadModal({ open: false, type: "post", withChallenge: false });
+        } catch (err) {
+          alert("Error al subir la foto. Verifica que en Firebase > Firestore > Reglas esté en modo de prueba (allow read, write: if true;).");
+        } finally {
+          setIsSubmitting(false);
+        }
+      };
+
+      // Dar o quitar Me Gusta
+      const toggleLike = async (post) => {
+        if (!currentUserDoc || !window.FB) return;
+        const { db, doc, updateDoc, arrayUnion, arrayRemove } = window.FB;
+        const hasLiked = (post.likes || []).includes(currentUserDoc.uid);
+        const postRef = doc(db, "posts", post.id);
+        try {
+          await updateDoc(postRef, {
+            likes: hasLiked ? arrayRemove(currentUserDoc.uid) : arrayUnion(currentUserDoc.uid)
+          });
+        } catch (e) {
+          console.error("Error al dar like:", e);
+        }
+      };
+
+      // Comentar una publicación
+      const handleAddComment = async (postId) => {
+        const text = (commentInputs[postId] || "").trim();
+        if (!text || !currentUserDoc || !window.FB) return;
+        const { db, doc, updateDoc, arrayUnion } = window.FB;
+        const newComment = {
+          id: "c_" + Date.now(),
+          userId: currentUserDoc.uid,
+          userName: currentUserDoc.name,
+          userAvatar: currentUserDoc.avatar,
+          text,
+          createdAt: Date.now()
+        };
+        try {
+          await updateDoc(doc(db, "posts", postId), {
+            comments: arrayUnion(newComment)
+          });
+          setCommentInputs(prev => ({ ...prev, [postId]: "" }));
+        } catch (e) {
+          console.error("Error al comentar:", e);
+        }
+      };
+
+      // Eliminar foto o historia (Solo el dueño o el Admin joellpethers@gmail.com)
+      const handleDeletePost = async (post) => {
+        if (!currentUserDoc) return;
+        if (post.userId !== currentUserDoc.uid && !isAdmin) return;
+        if (!confirm("¿Seguro que deseas eliminar esta publicación?")) return;
+        try {
+          await window.FB.deleteDoc(window.FB.doc(window.FB.db, "posts", post.id));
+        } catch (e) {
+          console.error("Error eliminando:", e);
+        }
+      };
+
+      // Hacer amigo con otro invitado
+      const toggleFriend = async (targetUser) => {
+        if (!currentUserDoc || !window.FB) return;
+        const { db, doc, updateDoc, arrayUnion, arrayRemove } = window.FB;
+        const myFriends = currentUserDoc.friends || [];
+        const isFriend = myFriends.includes(targetUser.uid);
+
+        try {
+          await updateDoc(doc(db, "users", currentUserDoc.uid), {
+            friends: isFriend ? arrayRemove(targetUser.uid) : arrayUnion(targetUser.uid)
+          });
+          await updateDoc(doc(db, "users", targetUser.uid), {
+            friends: isFriend ? arrayRemove(currentUserDoc.uid) : arrayUnion(currentUserDoc.uid)
+          });
+        } catch (e) {
+          console.error("Error actualizando amigo:", e);
+        }
+      };
+
+      // Enviar mensaje en el chat privado
+      const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (!chatText.trim() || !activeChatFriend || !currentUserDoc || !window.FB) return;
+        const { db, collection, addDoc } = window.FB;
+        const participants = [currentUserDoc.uid, activeChatFriend.uid].sort().join("__");
+        try {
+          await addDoc(collection(db, "messages"), {
+            chatKey: participants,
+            senderId: currentUserDoc.uid,
+            senderName: currentUserDoc.name,
+            receiverId: activeChatFriend.uid,
+            text: chatText.trim(),
+            createdAt: Date.now()
+          });
+          setChatText("");
+        } catch (e) {
+          console.error("Error enviando mensaje:", e);
+        }
+      };
+
+      // Métricas del usuario actual
+      const myPosts = posts.filter(p => p.userId === currentUserDoc?.uid);
+      const myStories = stories.filter(s => s.userId === currentUserDoc?.uid);
+      const myTotalLikesReceived = myPosts.reduce((acc, p) => acc + (p.likes?.length || 0), 0);
+      const myTotalCommentsReceived = myPosts.reduce((acc, p) => acc + (p.comments?.length || 0), 0);
+
+      // Estadísticas por invitado para el Administrador (joellpethers@gmail.com)
+      const guestStats = useMemo(() => {
+        return users.map(u => {
+          const uPosts = posts.filter(p => p.userId === u.uid);
+          const uStories = stories.filter(s => s.userId === u.uid);
+          const likesReceived = uPosts.reduce((sum, p) => sum + (p.likes?.length || 0), 0);
+          const commentsReceived = uPosts.reduce((sum, p) => sum + (p.comments?.length || 0), 0);
+          const commentsMade = posts.reduce(
+            (sum, p) => sum + (p.comments?.filter(c => c.userId === u.uid).length || 0),
+            0
+          );
+          const challengesDone = uPosts.filter(p => !!p.challengeTitle).length;
+          return {
+            ...u,
+            postsCount: uPosts.length,
+            storiesCount: uStories.length,
+            likesReceived,
+            commentsReceived,
+            commentsMade,
+            challengesDone
+          };
+        });
+      }, [users, posts, stories]);
+
+      // ====================================================================
+      // PANTALLA DE LOGIN Y BIENVENIDA CON ESTÉTICA SUNSET, NUDE Y BORGOÑA
+      // ====================================================================
+      if (!currentUserDoc) {
+        return (
+          <div className="min-h-screen flex flex-col justify-between items-center p-6 relative overflow-hidden">
+            {/* Sol de atardecer animado de fondo */}
+            <div className="absolute top-12 w-72 h-72 rounded-full bg-gradient-to-b from-amber-300 via-rose-400 to-burgundy-800 blur-2xl opacity-40 animate-sunset pointer-events-none"></div>
+
+            <div className="w-full max-w-md z-10 my-auto">
+              <div className="glass-card rounded-3xl p-8 shadow-2xl text-center border border-nude-300/30">
+                {/* Espacio para el Logo de tu Fiesta Sunset */}
+                <div className="relative mx-auto w-28 h-28 rounded-full bg-gradient-to-tr from-burgundy-900 via-rose-500 to-amber-300 p-1 shadow-xl mb-5 flex items-center justify-center">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="Logo Sunset" className="w-full h-full object-cover rounded-full" />
+                  ) : (
+                    <div className="w-full h-full rounded-full bg-burgundy-950/90 flex flex-col items-center justify-center">
+                      <span className="text-3xl">🌅</span>
+                      <span className="text-[10px] tracking-widest uppercase text-nude-300 font-semibold mt-0.5">Sunset</span>
+                    </div>
+                  )}
+                </div>
+
+                <h1 className="font-serif text-4xl font-bold tracking-tight text-white mb-2">
+                  Sunset Vibes
+                </h1>
+                <p className="text-xs uppercase tracking-[0.25em] text-nude-300 font-semibold mb-6">
+                  La Red Social Oficial del Evento
+                </p>
+
+                {/* Frases inspiradoras rotativas */}
+                <div className="min-h-[54px] flex items-center justify-center px-3 py-2 mb-6 rounded-2xl bg-burgundy-950/50 border border-nude-300/20">
+                  <p className="text-sm italic text-nude-100 transition-all duration-500">
+                    {INSPIRATIONAL_QUOTES[quoteIndex]}
+                  </p>
+                </div>
+
+                {/* Botón Oficial de Google */}
+                <button
+                  onClick={handleGoogleLogin}
+                  className="w-full py-3.5 px-5 rounded-2xl bg-white text-burgundy-950 font-bold text-sm flex items-center justify-center gap-3 shadow-lg hover:bg-nude-100 active:scale-[0.99] transition"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"/>
+                    <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"/>
+                    <path fill="#FBBC05" d="M5.3 14.8c-.2-.8-.4-1.6-.4-2.5s.2-1.7.4-2.5L1.6 7C.6 9 0 11.2 0 13.5s.6 4.5 1.6 6.5l3.7-2.9z"/>
+                    <path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5L1.6 17c1.9 3.9 5.8 7 10.4 7z"/>
+                  </svg>
+                  Continuar con Google
+                </button>
+
+                {authError && (
+                  <p className="mt-3 text-xs text-amber-200 bg-burgundy-950/80 p-3 rounded-xl border border-amber-400/30">
+                    {authError}
+                  </p>
+                )}
+
+                <div className="my-5 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-nude-300/20"></div>
+                  <span className="text-[11px] uppercase tracking-wider text-nude-300">O acceso rápido de invitado</span>
+                  <div className="h-px flex-1 bg-nude-300/20"></div>
+                </div>
+
+                {/* Acceso directo con nombre y correo */}
+                <form onSubmit={handleQuickEmailLogin} className="space-y-3 text-left">
+                  <div>
+                    <label className="text-xs text-nude-200 ml-1">Tu Nombre o Apodo</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej. Valentina / Joell"
+                      value={customLoginName}
+                      onChange={(e) => setCustomLoginName(e.target.value)}
+                      className="w-full mt-1 px-4 py-2.5 rounded-xl bg-burgundy-950/70 border border-nude-300/30 text-white placeholder-nude-300/50 text-sm focus:outline-none focus:border-nude-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-nude-200 ml-1">Tu Correo de Google</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="tucorreo@gmail.com"
+                      value={customLoginEmail}
+                      onChange={(e) => setCustomLoginEmail(e.target.value)}
+                      className="w-full mt-1 px-4 py-2.5 rounded-xl bg-burgundy-950/70 border border-nude-300/30 text-white placeholder-nude-300/50 text-sm focus:outline-none focus:border-nude-300"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-nude-300 to-rose-300 text-burgundy-950 font-bold text-sm shadow-md hover:opacity-95 transition"
+                  >
+                    Entrar a la Fiesta ✨
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <p className="text-xs text-nude-300/70 text-center z-10">
+              Escanea • Comparte • Conecta en el Sunset
+            </p>
+          </div>
+        );
+      }
+
+      // Conversación filtrada con el amigo activo
+      const activeChatKey = activeChatFriend
+        ? [currentUserDoc.uid, activeChatFriend.uid].sort().join("__")
+        : null;
+      const activeChatMessages = messages.filter(m => m.chatKey === activeChatKey);
+
+      return (
+        <div className="min-h-screen pb-24 max-w-lg mx-auto relative">
+          {/* BARRA SUPERIOR */}
+          <header className="sticky top-0 z-30 glass-nav px-4 py-3 flex items-center justify-between border-b border-nude-300/20">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-burgundy-800 via-rose-400 to-amber-300 p-0.5 flex items-center justify-center">
+                <span className="text-lg">🌅</span>
+              </div>
+              <div>
+                <h1 className="font-serif text-lg font-bold leading-none text-white">Sunset Vibes</h1>
+                <span className="text-[10px] text-nude-300 tracking-wider uppercase">
+                  {isAdmin ? "Modo Administrador Total" : "En Vivo • Fiesta Sunset"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setQrModalOpen(true)}
+                className="px-3 py-1.5 rounded-full bg-burgundy-800/80 border border-nude-300/30 text-xs text-nude-100 font-medium hover:bg-burgundy-700 transition"
+              >
+                QR Fiesta
+              </button>
+              <button
+                onClick={handleLogout}
+                title="Cerrar Sesión"
+                className="px-3 py-1.5 rounded-full bg-rose-950/80 border border-rose-400/30 text-xs text-rose-200 hover:bg-rose-900 transition"
+              >
+                Salir
+              </button>
+            </div>
+          </header>
+
+          {/* ========================================================== */}
+          {/* PESTAÑA 1: MURO PRINCIPAL (TODAS LAS FOTOS E HISTORIAS)    */}
+          {/* ========================================================== */}
+          {activeTab === "feed" && (
+            <div className="p-4 space-y-5">
+              {/* Carrusel de Historias */}
+              <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-1">
+                <button
+                  onClick={() => setUploadModal({ open: true, type: "story", withChallenge: false })}
+                  className="flex flex-col items-center shrink-0"
+                >
+                  <div className="w-16 h-16 rounded-full bg-burgundy-800 border-2 border-dashed border-nude-300 flex items-center justify-center text-2xl text-nude-300">
+                    +
+                  </div>
+                  <span className="text-[11px] mt-1 text-nude-200 font-medium">Tu Historia</span>
+                </button>
+
+                {stories.map((st) => (
+                  <button
+                    key={st.id}
+                    onClick={() => setSelectedStory(st)}
+                    className="flex flex-col items-center shrink-0"
+                  >
+                    <div className="w-16 h-16 rounded-full p-0.5 bg-gradient-to-tr from-amber-400 via-rose-400 to-nude-300">
+                      <img src={st.mediaUrl} alt="" className="w-full h-full object-cover rounded-full border-2 border-burgundy-950" />
+                    </div>
+                    <span className="text-[11px] mt-1 text-white truncate max-w-[68px]">{st.userName}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Tarjeta del Reto Fotográfico Al Azar (Opcional) */}
+              <div className="glass-card rounded-2xl p-4 border border-nude-300/40 shadow-lg">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-nude-300 text-burgundy-950 font-bold">
+                    Reto Sunset al Azar (Opcional)
+                  </span>
+                  <button
+                    onClick={nextRandomChallenge}
+                    className="text-xs text-nude-200 underline hover:text-white transition"
+                  >
+                    🎲 Pasar a otro reto
+                  </button>
+                </div>
+
+                <h3 className="text-base font-bold text-white flex items-center gap-2 mt-1">
+                  <span className="text-xl">{currentChallenge.emoji}</span>
+                  {currentChallenge.title}
+                </h3>
+                <p className="text-xs text-nude-100 mt-1 mb-3">{currentChallenge.desc}</p>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setUploadModal({ open: true, type: "post", withChallenge: true })}
+                    className="py-2 px-3 rounded-xl bg-nude-300 text-burgundy-950 font-bold text-xs shadow hover:bg-nude-200 transition"
+                  >
+                    📸 Subir con este Reto
+                  </button>
+                  <button
+                    onClick={() => setUploadModal({ open: true, type: "post", withChallenge: false })}
+                    className="py-2 px-3 rounded-xl bg-burgundy-900/90 border border-nude-300/30 text-white font-semibold text-xs hover:bg-burgundy-800 transition"
+                  >
+                    ✨ Subir Foto Libre
+                  </button>
+                </div>
+              </div>
+
+              {/* Feed de todas las publicaciones */}
+              {posts.length === 0 ? (
+                <div className="glass-card rounded-3xl p-8 text-center">
+                  <p className="text-3xl mb-2">🌅</p>
+                  <p className="text-base font-semibold text-white">¡Sé la primera persona en inaugurar el muro!</p>
+                  <p className="text-xs text-nude-200 mt-1">Sube una foto del atardecer o de tu grupo de amigos.</p>
+                </div>
+              ) : (
+                posts.map((post) => {
+                  const isLiked = (post.likes || []).includes(currentUserDoc.uid);
+                  const canDelete = post.userId === currentUserDoc.uid || isAdmin;
+
+                  return (
+                    <div key={post.id} className="glass-card rounded-3xl overflow-hidden shadow-xl">
+                      {/* Cabecera del Post */}
+                      <div className="p-3.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <img src={post.userAvatar} alt="" className="w-9 h-9 rounded-full bg-burgundy-900 object-cover border border-nude-300/40" />
+                          <div>
+                            <p className="text-sm font-bold text-white leading-tight">{post.userName}</p>
+                            {post.challengeTitle && (
+                              <span className="inline-block text-[10px] text-amber-200 font-medium">
+                                Reto: {post.challengeTitle}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDeletePost(post)}
+                            className="text-xs text-rose-300 hover:text-rose-100 px-2 py-1 rounded-lg bg-burgundy-950/60"
+                          >
+                            Eliminar
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Imagen Principal */}
+                      <div className="bg-burgundy-950 max-h-[440px] overflow-hidden flex items-center justify-center">
+                        <img
+                          src={post.mediaUrl}
+                          alt={post.caption || "Foto Sunset"}
+                          onDoubleClick={() => toggleLike(post)}
+                          className="w-full object-cover cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Botones de Acción y Conteo */}
+                      <div className="p-4 space-y-2.5">
+                        <div className="flex items-center gap-4">
+                          <button
+                            onClick={() => toggleLike(post)}
+                            className={`flex items-center gap-1.5 text-sm font-bold px-3 py-1.5 rounded-full transition ${
+                              isLiked ? "bg-rose-500 text-white" : "bg-burgundy-900/80 text-nude-200 border border-nude-300/20"
+                            }`}
+                          >
+                            <span>{isLiked ? "❤️" : "🤍"}</span>
+                            <span>{post.likes?.length || 0} Me gusta</span>
+                          </button>
+                          <span className="text-xs text-nude-200">
+                            💬 {post.comments?.length || 0} comentarios
+                          </span>
+                        </div>
+
+                        {post.caption && (
+                          <p className="text-sm text-white">
+                            <span className="font-bold text-nude-300 mr-1.5">{post.userName}:</span>
+                            {post.caption}
+                          </p>
+                        )}
+
+                        {/* Lista de Comentarios */}
+                        {(post.comments || []).length > 0 && (
+                          <div className="space-y-1.5 pt-2 border-t border-nude-300/15 max-h-36 overflow-y-auto no-scrollbar">
+                            {post.comments.map((c) => (
+                              <p key={c.id} className="text-xs text-nude-100">
+                                <span className="font-bold text-white mr-1.5">{c.userName}:</span>
+                                {c.text}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Agregar Comentario */}
+                        <div className="flex items-center gap-2 pt-1">
+                          <input
+                            type="text"
+                            placeholder="Escribe un comentario bonito..."
+                            value={commentInputs[post.id] || ""}
+                            onChange={(e) => setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
+                            onKeyDown={(e) => e.key === "Enter" && handleAddComment(post.id)}
+                            className="flex-1 px-3.5 py-2 rounded-full bg-burgundy-950/70 border border-nude-300/25 text-xs text-white placeholder-nude-300/50 focus:outline-none focus:border-nude-300"
+                          />
+                          <button
+                            onClick={() => handleAddComment(post.id)}
+                            className="px-4 py-2 rounded-full bg-nude-300 text-burgundy-950 font-bold text-xs"
+                          >
+                            Enviar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* ========================================================== */}
+          {/* PESTAÑA 2: MI PERFIL (CONTEOS, RETO Y MIS FOTOS/HISTORIAS) */}
+          {/* ========================================================== */}
+          {activeTab === "profile" && (
+            <div className="p-4 space-y-5">
+              <div className="glass-card rounded-3xl p-6 text-center">
+                <img
+                  src={currentUserDoc.avatar}
+                  alt={currentUserDoc.name}
+                  className="w-24 h-24 rounded-full mx-auto object-cover border-2 border-nude-300 shadow-lg"
+                />
+                <h2 className="font-serif text-2xl font-bold text-white mt-3">{currentUserDoc.name}</h2>
+                <p className="text-xs text-nude-300">{currentUserDoc.email}</p>
+
+                {/* Contadores del Perfil */}
+                <div className="grid grid-cols-4 gap-2 mt-5 pt-4 border-t border-nude-300/20">
+                  <div>
+                    <p className="text-lg font-bold text-white">{myPosts.length}</p>
+                    <p className="text-[10px] uppercase text-nude-300">Fotos</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-white">{myStories.length}</p>
+                    <p className="text-[10px] uppercase text-nude-300">Historias</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-rose-300">{myTotalLikesReceived}</p>
+                    <p className="text-[10px] uppercase text-nude-300">Me gusta</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-amber-300">{myTotalCommentsReceived}</p>
+                    <p className="text-[10px] uppercase text-nude-300">Comentarios</p>
+                  </div>
+                </div>
+
+                {/* Botones de Subida en su Perfil */}
+                <div className="grid grid-cols-2 gap-2.5 mt-5">
+                  <button
+                    onClick={() => setUploadModal({ open: true, type: "post", withChallenge: false })}
+                    className="py-2.5 rounded-xl bg-nude-300 text-burgundy-950 font-bold text-xs shadow"
+                  >
+                    + Subir Foto al Muro
+                  </button>
+                  <button
+                    onClick={() => setUploadModal({ open: true, type: "story", withChallenge: false })}
+                    className="py-2.5 rounded-xl bg-burgundy-800 border border-nude-300/40 text-white font-bold text-xs"
+                  >
+                    + Subir Historia
+                  </button>
+                </div>
+              </div>
+
+              {/* Reto Personal dentro del Perfil */}
+              <div className="glass-card rounded-2xl p-4 border border-nude-300/30">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-nude-300 uppercase">Tu Reto Fotográfico sugerido</span>
+                  <button onClick={nextRandomChallenge} className="text-xs text-amber-200 underline">
+                    Cambiar reto 🎲
+                  </button>
+                </div>
+                <p className="text-sm font-bold text-white mt-1">
+                  {currentChallenge.emoji} {currentChallenge.title}
+                </p>
+                <p className="text-xs text-nude-100 mt-0.5">{currentChallenge.desc}</p>
+                <button
+                  onClick={() => setUploadModal({ open: true, type: "post", withChallenge: true })}
+                  className="mt-3 w-full py-2 rounded-xl bg-gradient-to-r from-nude-300 to-amber-200 text-burgundy-950 font-bold text-xs"
+                >
+                  Cumplir este reto ahora
+                </button>
+              </div>
+
+              {/* Galería Personal del Invitado */}
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-nude-300 mb-3">
+                  Mis Fotos Subidas ({myPosts.length})
+                </h3>
+                {myPosts.length === 0 ? (
+                  <p className="text-xs text-nude-200/70 glass-card p-6 rounded-2xl text-center">
+                    Aún no has subido fotos desde tu perfil.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    {myPosts.map(p => (
+                      <div key={p.id} className="glass-card rounded-2xl overflow-hidden relative group">
+                        <img src={p.mediaUrl} alt="" className="w-full h-40 object-cover" />
+                        <div className="p-2 flex items-center justify-between text-xs">
+                          <span>❤️ {p.likes?.length || 0} • 💬 {p.comments?.length || 0}</span>
+                          <button
+                            onClick={() => handleDeletePost(p)}
+                            className="text-rose-300 hover:text-rose-100 font-semibold"
+                          >
+                            Borrar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================== */}
+          {/* PESTAÑA 3: INVITADOS, AMIGOS Y CHAT EN TIEMPO REAL         */}
+          {/* ========================================================== */}
+          {activeTab === "friends" && (
+            <div className="p-4 space-y-4">
+              {activeChatFriend ? (
+                <div className="glass-card rounded-3xl overflow-hidden flex flex-col h-[72vh]">
+                  <div className="p-3.5 bg-burgundy-950/80 border-b border-nude-300/20 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <img src={activeChatFriend.avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
+                      <div>
+                        <p className="text-sm font-bold text-white">{activeChatFriend.name}</p>
+                        <p className="text-[10px] text-nude-300">{activeChatFriend.email}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setActiveChatFriend(null)}
+                      className="px-3 py-1 rounded-full bg-burgundy-800 text-xs text-nude-200"
+                    >
+                      Volver
+                    </button>
+                  </div>
+
+                  <div className="flex-1 p-4 overflow-y-auto space-y-2.5">
+                    {activeChatMessages.length === 0 ? (
+                      <p className="text-xs text-center text-nude-200/70 my-auto pt-16">
+                        ¡Saluda a {activeChatFriend.name} y brinden juntos en la fiesta! 🥂
+                      </p>
+                    ) : (
+                      activeChatMessages.map(m => {
+                        const isMine = m.senderId === currentUserDoc.uid;
+                        return (
+                          <div key={m.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+                            <div
+                              className={`max-w-[75%] px-3.5 py-2 rounded-2xl text-xs ${
+                                isMine
+                                  ? "bg-nude-300 text-burgundy-950 font-medium rounded-br-none"
+                                  : "bg-burgundy-900 border border-nude-300/25 text-white rounded-bl-none"
+                              }`}
+                            >
+                              {m.text}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <form onSubmit={handleSendMessage} className="p-3 bg-burgundy-950/90 flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Escribe un mensaje..."
+                      value={chatText}
+                      onChange={(e) => setChatText(e.target.value)}
+                      className="flex-1 px-4 py-2.5 rounded-full bg-burgundy-900 border border-nude-300/30 text-xs text-white focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 rounded-full bg-nude-300 text-burgundy-950 font-bold text-xs"
+                    >
+                      Enviar
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <>
+                  <div className="glass-card rounded-2xl p-4">
+                    <h2 className="font-serif text-xl font-bold text-white">Invitados del Sunset</h2>
+                    <p className="text-xs text-nude-200">
+                      Conecta con otras personas registradas en la fiesta, agrégalas como amigos y chatea en vivo.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {users.filter(u => u.uid !== currentUserDoc.uid).length === 0 ? (
+                      <p className="text-xs text-nude-200 glass-card p-6 rounded-2xl text-center">
+                        Aún no hay otros invitados conectados. ¡Comparte el QR de la fiesta!
+                      </p>
+                    ) : (
+                      users
+                        .filter(u => u.uid !== currentUserDoc.uid)
+                        .map(guest => {
+                          const isMyFriend = (currentUserDoc.friends || []).includes(guest.uid);
+                          return (
+                            <div key={guest.uid} className="glass-card rounded-2xl p-3.5 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <img src={guest.avatar} alt="" className="w-11 h-11 rounded-full object-cover border border-nude-300/40" />
+                                <div>
+                                  <p className="text-sm font-bold text-white">{guest.name}</p>
+                                  <p className="text-[11px] text-nude-300">{guest.email}</p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => toggleFriend(guest)}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                                    isMyFriend
+                                      ? "bg-burgundy-950 text-nude-300 border border-nude-300/40"
+                                      : "bg-nude-300 text-burgundy-950"
+                                  }`}
+                                >
+                                  {isMyFriend ? "✓ Amigos" : "+ Amigo"}
+                                </button>
+                                <button
+                                  onClick={() => setActiveChatFriend(guest)}
+                                  className="px-3 py-1.5 rounded-xl bg-burgundy-800 border border-nude-300/30 text-xs text-white font-semibold"
+                                >
+                                  💬 Chat
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ========================================================== */}
+          {/* PESTAÑA 4: PANEL EXCLUSIVO ADMIN (joellpethers@gmail.com)  */}
+          {/* ========================================================== */}
+          {activeTab === "admin" && isAdmin && (
+            <div className="p-4 space-y-4">
+              <div className="glass-card rounded-3xl p-5 border border-amber-300/40">
+                <span className="text-[10px] uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-amber-300 text-burgundy-950 font-bold">
+                  Panel de Control • Administrador
+                </span>
+                <h2 className="font-serif text-2xl font-bold text-white mt-2">
+                  Resumen General del Evento
+                </h2>
+                <p className="text-xs text-nude-200">
+                  Acceso exclusivo para {ADMIN_EMAIL}. Aquí ves el conteo global y por cada invitado.
+                </p>
+
+                <div className="grid grid-cols-3 gap-2.5 mt-4 text-center">
+                  <div className="bg-burgundy-950/70 p-3 rounded-2xl border border-nude-300/20">
+                    <p className="text-xl font-bold text-white">{users.length}</p>
+                    <p className="text-[10px] uppercase text-nude-300">Invitados</p>
+                  </div>
+                  <div className="bg-burgundy-950/70 p-3 rounded-2xl border border-nude-300/20">
+                    <p className="text-xl font-bold text-nude-300">{posts.length + stories.length}</p>
+                    <p className="text-[10px] uppercase text-nude-300">Fotos y Stories</p>
+                  </div>
+                  <div className="bg-burgundy-950/70 p-3 rounded-2xl border border-nude-300/20">
+                    <p className="text-xl font-bold text-rose-300">
+                      {posts.reduce((s, p) => s + (p.likes?.length || 0), 0)}
+                    </p>
+                    <p className="text-[10px] uppercase text-nude-300">Likes Totales</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Desglose por cada Invitado Registrado */}
+              <div className="space-y-2.5">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-nude-300 px-1">
+                  Conteo Detallado por Invitado ({guestStats.length})
+                </h3>
+                {guestStats.map((g) => (
+                  <div key={g.uid} className="glass-card rounded-2xl p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <img src={g.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
+                        <div>
+                          <p className="text-sm font-bold text-white">{g.name}</p>
+                          <p className="text-[11px] text-nude-300">{g.email}</p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] px-2.5 py-1 rounded-full bg-burgundy-950 text-amber-200 border border-amber-300/30">
+                        🎯 {g.challengesDone} retos
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2 pt-2 border-t border-nude-300/15 text-center text-xs">
+                      <div>
+                        <span className="block font-bold text-white">{g.postsCount}</span>
+                        <span className="text-[10px] text-nude-300">Fotos</span>
+                      </div>
+                      <div>
+                        <span className="block font-bold text-white">{g.storiesCount}</span>
+                        <span className="text-[10px] text-nude-300">Historias</span>
+                      </div>
+                      <div>
+                        <span className="block font-bold text-rose-300">{g.likesReceived}</span>
+                        <span className="text-[10px] text-nude-300">Likes recib.</span>
+                      </div>
+                      <div>
+                        <span className="block font-bold text-amber-300">{g.commentsReceived}</span>
+                        <span className="text-[10px] text-nude-300">Coment.</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================== */}
+          {/* MODAL DE SUBIDA DE FOTO O HISTORIA                         */}
+          {/* ========================================================== */}
+          {uploadModal.open && (
+            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="glass-card rounded-3xl max-w-md w-full p-6 border border-nude-300/40 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-serif text-xl font-bold text-white">
+                    {uploadModal.type === "story"
+                      ? "Subir Historia Sunset"
+                      : uploadModal.withChallenge
+                      ? "Subir Foto con Reto"
+                      : "Subir Foto Libre"}
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setUploadModal({ open: false, type: "post", withChallenge: false });
+                      setPreviewMedia("");
+                    }}
+                    className="text-nude-300 hover:text-white text-sm"
+                  >
+                    ✕ Cerrar
+                  </button>
+                </div>
+
+                {uploadModal.withChallenge && (
+                  <div className="p-3 rounded-2xl bg-burgundy-950/80 border border-amber-300/40 text-xs">
+                    <p className="font-bold text-amber-200">
+                      {currentChallenge.emoji} Reto: {currentChallenge.title}
+                    </p>
+                    <p className="text-nude-100 mt-0.5">{currentChallenge.desc}</p>
+                  </div>
+                )}
+
+                <form onSubmit={handlePublish} className="space-y-4">
+                  <label className="block w-full cursor-pointer">
+                    <div className="w-full h-56 rounded-2xl border-2 border-dashed border-nude-300/50 bg-burgundy-950/50 flex flex-col items-center justify-center overflow-hidden">
+                      {previewMedia ? (
+                        <img src={previewMedia} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="text-center p-4">
+                          <span className="text-3xl">📷</span>
+                          <p className="text-xs font-bold text-white mt-2">
+                            Toca aquí para tomar foto o elegir de tu galería
+                          </p>
+                          <p className="text-[11px] text-nude-300 mt-1">
+                            Compresión inteligente automática para subida instantánea
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                  </label>
+
+                  <input
+                    type="text"
+                    placeholder="Escribe un pie de foto o mensaje..."
+                    value={caption}
+                    onChange={(e) => setCaption(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-burgundy-950/80 border border-nude-300/30 text-sm text-white placeholder-nude-300/50 focus:outline-none"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={!previewMedia || isSubmitting}
+                    className="w-full py-3.5 rounded-xl bg-nude-300 text-burgundy-950 font-bold text-sm disabled:opacity-40"
+                  >
+                    {isSubmitting ? "Publicando..." : "Publicar Ahora ✨"}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* VISOR DE HISTORIA A PANTALLA COMPLETA */}
+          {selectedStory && (
+            <div
+              onClick={() => setSelectedStory(null)}
+              className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4"
+            >
+              <div className="max-w-md w-full relative">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <img src={selectedStory.userAvatar} alt="" className="w-9 h-9 rounded-full" />
+                    <span className="text-sm font-bold text-white">{selectedStory.userName}</span>
+                  </div>
+                  <button className="text-white text-sm bg-white/10 px-3 py-1 rounded-full">Cerrar ✕</button>
+                </div>
+                <img src={selectedStory.mediaUrl} alt="" className="w-full max-h-[75vh] object-contain rounded-2xl" />
+                {selectedStory.caption && (
+                  <p className="text-center text-white text-sm mt-3 bg-black/60 p-2.5 rounded-xl">
+                    {selectedStory.caption}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* MODAL DE TARJETA QR PARA IMPRIMIR O COMPARTIR */}
+          {qrModalOpen && (
+            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="glass-card rounded-3xl max-w-sm w-full p-6 text-center border border-nude-300/40 space-y-4">
+                <h3 className="font-serif text-2xl font-bold text-white">QR Oficial Sunset Vibes</h3>
+                <p className="text-xs text-nude-200">
+                  Escanea este código QR para entrar directo al muro de la fiesta, cumplir retos y subir tus fotos.
+                </p>
+                <div className="bg-white p-4 rounded-2xl inline-block mx-auto shadow-xl">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(window.location.href)}`}
+                    alt="QR Sunset Vibes"
+                    className="w-48 h-48"
+                  />
+                </div>
+                <button
+                  onClick={() => setQrModalOpen(false)}
+                  className="w-full py-3 rounded-xl bg-nude-300 text-burgundy-950 font-bold text-xs"
+                >
+                  Listo
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* BARRA DE NAVEGACIÓN INFERIOR */}
+          <nav className="fixed bottom-0 left-0 right-0 z-40 glass-nav max-w-lg mx-auto px-4 py-2.5 flex items-center justify-around">
+            <button
+              onClick={() => setActiveTab("feed")}
+              className={`flex flex-col items-center gap-0.5 text-xs font-semibold ${
+                activeTab === "feed" ? "text-nude-300" : "text-white/60"
+              }`}
+            >
+              <span className="text-lg">🏠</span>
+              <span>Muro</span>
+            </button>
+
+            <button
+              onClick={() => setUploadModal({ open: true, type: "post", withChallenge: false })}
+              className="w-12 h-12 -mt-5 rounded-full bg-gradient-to-tr from-nude-300 via-rose-300 to-amber-200 text-burgundy-950 font-bold text-2xl shadow-xl flex items-center justify-center border-2 border-burgundy-950"
+            >
+              +
+            </button>
+
+            <button
+              onClick={() => setActiveTab("friends")}
+              className={`flex flex-col items-center gap-0.5 text-xs font-semibold ${
+                activeTab === "friends" ? "text-nude-300" : "text-white/60"
+              }`}
+            >
+              <span className="text-lg">🥂</span>
+              <span>Amigos/Chat</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("profile")}
+              className={`flex flex-col items-center gap-0.5 text-xs font-semibold ${
+                activeTab === "profile" ? "text-nude-300" : "text-white/60"
+              }`}
+            >
+              <span className="text-lg">👤</span>
+              <span>Mi Perfil</span>
+            </button>
+
+            {isAdmin && (
+              <button
+                onClick={() => setActiveTab("admin")}
+                className={`flex flex-col items-center gap-0.5 text-xs font-bold ${
+                  activeTab === "admin" ? "text-amber-300" : "text-amber-200/70"
+                }`}
+              >
+                <span className="text-lg">👑</span>
+                <span>Admin</span>
+              </button>
+            )}
+          </nav>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<SunsetVibesApp />);
+  </script>
+</body>
+</html>
