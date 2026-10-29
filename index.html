@@ -48,11 +48,17 @@ background: radial-gradient(circle at 50% 5%, rgba(232, 180, 184, 0.14) 0%, rgba
 background-attachment: fixed;
 }
 .glass-card {
-background: rgba(22, 3, 12, 0.90);
+background: rgba(22, 3, 12, 0.92);
 backdrop-filter: blur(20px);
 -webkit-backdrop-filter: blur(20px);
-border: 1px solid rgba(232, 180, 184, 0.25);
-box-shadow: 0 14px 34px -6px rgba(0, 0, 0, 0.78);
+border: 1px solid rgba(232, 180, 184, 0.26);
+box-shadow: 0 14px 34px -6px rgba(0, 0, 0, 0.8);
+}
+/* Burbuja ovalada de alto contraste detrás de las historias */
+.stories-oval-bubble {
+background: linear-gradient(135deg, rgba(46, 7, 27, 0.96) 0%, rgba(22, 3, 12, 0.98) 60%, rgba(75, 14, 46, 0.92) 100%);
+border: 1.5px solid rgba(232, 180, 184, 0.45);
+box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85), inset 0 1px 12px rgba(232, 180, 184, 0.18);
 }
 .glass-nav {
 background: rgba(9, 1, 5, 0.96);
@@ -145,7 +151,7 @@ const { useState, useEffect, useRef, useMemo } = React;
 
 const ADMIN_EMAIL = "joellpethers@gmail.com";
 
-// 10 Retos Fotográficos y de Video al azar (No obligatorios)
+// Los 10 Retos Secuenciales (Avanzan del 1 al 10 y vuelven al 1)
 const PHOTO_CHALLENGES = [
 { id: 1, title: "El Brindis Dorado", desc: "Sube una foto o video corto chocando tu copa con el atardecer.", emoji: "🥂" },
 { id: 2, title: "Silueta contra el Sol", desc: "Captura la silueta de alguien bailando frente a la luz del cielo.", emoji: "🌅" },
@@ -159,17 +165,17 @@ const PHOTO_CHALLENGES = [
 { id: 10, title: "El Rey o Reina de la Pista", desc: "Foto o video de máximo 15s de los mejores pasos prohibidos.", emoji: "💃" }
 ];
 
-// Filtros del Estudio de Edición
+const REACTION_EMOJIS = ["🔥", "🥂", "😍", "👏"];
+
 const MEDIA_FILTERS = [
 { id: "normal", name: "Original", css: "none" },
 { id: "golden", name: "Golden Hour", css: "sepia(0.35) saturate(1.6) contrast(1.08) brightness(1.04)" },
 { id: "rose", name: "Sunset Rosé", css: "contrast(1.12) saturate(1.4) hue-rotate(-14deg) brightness(1.03)" },
 { id: "vintage", name: "Retro 90s", css: "sepia(0.55) contrast(0.95) brightness(1.05)" },
-{ id: "bw", name: "Blanco y Negro", css: "grayscale(1) contrast(1.22)" },
-{ id: "cyber", name: "Noche Neon", css: "saturate(1.85) contrast(1.18) hue-rotate(15deg)" }
+{ id: "bw", name: "B&W", css: "grayscale(1) contrast(1.22)" },
+{ id: "cyber", name: "Neon Night", css: "saturate(1.85) contrast(1.18) hue-rotate(15deg)" }
 ];
 
-// Recortes / Formatos de encuadre
 const CROP_RATIOS = [
 { id: "original", label: "Libre", ratio: null, class: "max-h-[450px] object-contain" },
 { id: "1:1", label: "1:1 Cuadrado", ratio: 1, class: "aspect-square object-cover" },
@@ -177,7 +183,7 @@ const CROP_RATIOS = [
 { id: "9:16", label: "9:16 Story", ratio: 9/16, class: "aspect-[9/16] max-h-[450px] object-cover" }
 ];
 
-const STICKERS = ["🌅", "🥂", "🔥", "✨", "💃", "🕶️", "❤️", "👑", "🎶", "🍾"];
+const STICKERS = ["🌅", "🥂", "🔥", "✨", "💃", "🕶️", "❤️", "👑", "🎶", "🍾", "🪩", "🌴"];
 
 const TEXT_COLORS = [
 { id: "white", hex: "#FFFFFF", bg: "rgba(9, 1, 5, 0.72)" },
@@ -192,8 +198,8 @@ const INSPIRATIONAL_QUOTES = [
 "“Congela las sonrisas, los brindis y la magia de este Sunset.”"
 ];
 
-// Procesar y hornear edición (Recorte + Filtro + Texto + Sticker) directamente en la Imagen Base64
-const bakeEditedImage = (rawDataUrl, { filterCss, cropRatio, overlayText, textColorObj, textYPos, sticker }) => {
+// Hornear imagen con Recorte, Filtro, Texto y Múltiples Stickers posicionados libremente
+const bakeEditedImage = (rawDataUrl, { filterCss, cropRatio, overlayText, textColorObj, textYPos, stickers = [] }) => {
 return new Promise((resolve, reject) => {
 const img = new Image();
 img.src = rawDataUrl;
@@ -212,16 +218,9 @@ srcY = (img.height - srcH) / 2;
 }
 
 const maxDim = 820;
-let outW = srcW;
-let outH = srcH;
-if (outW > maxDim) {
-outH = Math.round((outH * maxDim) / outW);
-outW = maxDim;
-}
-if (outH > maxDim) {
-outW = Math.round((outW * maxDim) / outH);
-outH = maxDim;
-}
+let outW = srcW, outH = srcH;
+if (outW > maxDim) { outH = Math.round((outH * maxDim) / outW); outW = maxDim; }
+if (outH > maxDim) { outW = Math.round((outW * maxDim) / outH); outH = maxDim; }
 
 const canvas = document.createElement("canvas");
 canvas.width = outW;
@@ -234,16 +233,20 @@ ctx.filter = filterCss;
 ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, outW, outH);
 ctx.filter = "none";
 
-// Dibujar Sticker si existe
-if (sticker) {
-const stickerSize = Math.round(outW * 0.14);
+// Dibujar todos los Stickers en sus coordenadas (x%, y%)
+if (Array.isArray(stickers) && stickers.length > 0) {
+const stickerSize = Math.round(outW * 0.12);
 ctx.font = `${stickerSize}px sans-serif`;
-ctx.textAlign = "right";
-ctx.textBaseline = "top";
-ctx.fillText(sticker, outW - 22, 22);
+ctx.textAlign = "center";
+ctx.textBaseline = "middle";
+stickers.forEach((st) => {
+const sx = (st.x / 100) * outW;
+const sy = (st.y / 100) * outH;
+ctx.fillText(st.emoji, sx, sy);
+});
 }
 
-// Dibujar Texto Superpuesto si existe
+// Dibujar Texto Superpuesto
 if (overlayText && overlayText.trim()) {
 const fontSize = Math.max(20, Math.round(outW * 0.048));
 ctx.font = `800 ${fontSize}px "Plus Jakarta Sans", sans-serif`;
@@ -253,8 +256,7 @@ ctx.textBaseline = "middle";
 const yCoord = Math.round((textYPos / 100) * outH);
 const textStr = overlayText.trim();
 const metrics = ctx.measureText(textStr);
-const padX = 24;
-const padY = 14;
+const padX = 24, padY = 14;
 const boxW = Math.min(outW - 24, metrics.width + padX * 2);
 const boxH = fontSize + padY * 2;
 
@@ -267,13 +269,34 @@ ctx.fillStyle = textColorObj?.hex || "#FFFFFF";
 ctx.fillText(textStr, outW / 2, yCoord, outW - 40);
 }
 
-resolve(canvas.toDataURL("image/jpeg", 0.74));
+resolve(canvas.toDataURL("image/jpeg", 0.75));
 };
 img.onerror = (e) => reject(e);
 });
 };
 
-// Comprimir foto simple (ej. avatar)
+// Recortar bordes específicos (Arriba, Abajo, Izquierda, Derecha) de una foto ya subida
+const cropImageByBorders = (dataUrl, { top = 0, bottom = 0, left = 0, right = 0 }) => {
+return new Promise((resolve, reject) => {
+const img = new Image();
+img.src = dataUrl;
+img.onload = () => {
+const sx = Math.round((left / 100) * img.width);
+const sy = Math.round((top / 100) * img.height);
+const sw = Math.max(40, Math.round(((100 - left - right) / 100) * img.width));
+const sh = Math.max(40, Math.round(((100 - top - bottom) / 100) * img.height));
+
+const canvas = document.createElement("canvas");
+canvas.width = sw;
+canvas.height = sh;
+const ctx = canvas.getContext("2d");
+ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+resolve(canvas.toDataURL("image/jpeg", 0.8));
+};
+img.onerror = reject;
+});
+};
+
 const compressSimpleImage = (file, maxWidth = 420, quality = 0.78) => {
 return new Promise((resolve, reject) => {
 const reader = new FileReader();
@@ -295,7 +318,6 @@ reader.onerror = reject;
 });
 };
 
-// Procesar Video de máximo 15 segundos
 const processVideoFile = (file) => {
 return new Promise((resolve, reject) => {
 if (file.size > 790 * 1024) {
@@ -320,33 +342,54 @@ video.src = URL.createObjectURL(file);
 });
 };
 
-// Estado Online (activo en los últimos 90 seg)
 const isUserOnline = (u) => {
 if (!u || u.isOnline === false || !u.lastSeen) return false;
 return (Date.now() - u.lastSeen) < 95000;
 };
 
-// Renderizar video o imagen con filtros/stickers superpuestos (para videos editados)
-function MediaRenderer({ item, className = "w-full object-cover", onDoubleClick, autoPlay = false, controls = true }) {
+// Renderizador Multimedia con soporte de pausa real de video y múltiples stickers
+function MediaRenderer({ item, className = "w-full object-cover", onDoubleClick, autoPlay = false, controls = true, paused = false }) {
+const videoRef = useRef(null);
 const filterObj = MEDIA_FILTERS.find(f => f.id === item.filterId) || MEDIA_FILTERS[0];
 const textColorObj = TEXT_COLORS.find(c => c.id === item.overlayColorId) || TEXT_COLORS[0];
+
+// Sincronizar pausa real cuando es un video en Historias
+useEffect(() => {
+if (item.mediaType !== "video" || !videoRef.current) return;
+if (paused) {
+videoRef.current.pause();
+} else if (autoPlay) {
+videoRef.current.play().catch(() => {});
+}
+}, [paused, autoPlay, item.mediaUrl, item.mediaType]);
+
+const stickersList = Array.isArray(item.overlayStickers)
+? item.overlayStickers
+: item.overlaySticker
+? [{ id: "legacy", emoji: item.overlaySticker, x: 85, y: 15 }]
+: [];
 
 if (item.mediaType === "video") {
 return (
 <div className="relative w-full h-full flex items-center justify-center bg-black overflow-hidden" onDoubleClick={onDoubleClick}>
 <video
+ref={videoRef}
 src={item.mediaUrl}
 controls={controls}
-autoPlay={autoPlay}
+autoPlay={autoPlay && !paused}
 playsInline
 style={{ filter: filterObj.css }}
 className={className}
 />
-{item.overlaySticker && (
-<span className="absolute top-3 right-3 text-4xl pointer-events-none drop-shadow-lg">
-{item.overlaySticker}
+{stickersList.map((st) => (
+<span
+key={st.id}
+style={{ left: `${st.x}%`, top: `${st.y}%` }}
+className="absolute -translate-x-1/2 -translate-y-1/2 text-4xl pointer-events-none drop-shadow-lg"
+>
+{st.emoji}
 </span>
-)}
+))}
 {item.overlayText && (
 <div
 style={{
@@ -384,20 +427,25 @@ const [messages, setMessages] = useState([]);
 // Navegación
 const [activeTab, setActiveTab] = useState("feed"); // feed | search | chat | profile | admin
 const [chatSubTab, setChatSubTab] = useState("group"); // group | private
+const [adminSubTab, setAdminSubTab] = useState("guests"); // guests | challenges
 const [activeChatFriend, setActiveChatFriend] = useState(null);
 const [searchQuery, setSearchQuery] = useState("");
 const [quoteIndex, setQuoteIndex] = useState(0);
 
-// Perfil de otro invitado visitado y Vista Pantalla Completa de Post
+// Perfil visitado y Vista Pantalla Completa
 const [viewedProfileUid, setViewedProfileUid] = useState(null);
 const [fullscreenPostId, setFullscreenPostId] = useState(null);
 
-// Reto al azar
-const [currentChallenge, setCurrentChallenge] = useState(() =>
-PHOTO_CHALLENGES[Math.floor(Math.random() * PHOTO_CHALLENGES.length)]
-);
+// Modal de Recorte Interactivo por Bordes para Fotos ya subidas en el Perfil
+const [cropModalPost, setCropModalPost] = useState(null);
+const [borderCrop, setBorderCrop] = useState({ top: 0, bottom: 0, left: 0, right: 0 });
+const [isCroppingPost, setIsCroppingPost] = useState(false);
 
-// Modales
+// Retos Secuenciales del 1 al 10 (al llegar al 10 vuelve al 1)
+const [challengeIndex, setChallengeIndex] = useState(0);
+const currentChallenge = PHOTO_CHALLENGES[challengeIndex];
+
+// Modales generales
 const [uploadModal, setUploadModal] = useState({ open: false, type: "post", withChallenge: false });
 const [qrModalOpen, setQrModalOpen] = useState(false);
 const [shareModalPost, setShareModalPost] = useState(null);
@@ -405,19 +453,18 @@ const [editProfileModal, setEditProfileModal] = useState(false);
 const [adminEditPost, setAdminEditPost] = useState(null);
 const [adminEditUser, setAdminEditUser] = useState(null);
 
-// Estados de Autenticación (Google o @usuario + contraseña)
-const [authMode, setAuthMode] = useState("login"); // login | register
+// Login / Registro
+const [authMode, setAuthMode] = useState("login");
 const [loginUsername, setLoginUsername] = useState("");
 const [loginPassword, setLoginPassword] = useState("");
 const [authError, setAuthError] = useState("");
 
-// Completar registro tras Google Login o Registro nuevo
 const [setupUsername, setSetupUsername] = useState("");
 const [setupPassword, setSetupPassword] = useState("");
 const [setupAvatar, setSetupAvatar] = useState("");
 const [setupError, setSetupError] = useState("");
 
-// Estudio de Edición de Foto/Video al subir
+// Estudio de Subida con Múltiples Stickers Arrastrables
 const [rawMediaUrl, setRawMediaUrl] = useState("");
 const [mediaType, setMediaType] = useState("image");
 const [videoDuration, setVideoDuration] = useState(0);
@@ -426,12 +473,14 @@ const [selectedCrop, setSelectedCrop] = useState(CROP_RATIOS[0]);
 const [overlayText, setOverlayText] = useState("");
 const [overlayColor, setOverlayColor] = useState(TEXT_COLORS[0]);
 const [overlayYPos, setOverlayYPos] = useState(50);
-const [overlaySticker, setOverlaySticker] = useState("");
+const [placedStickers, setPlacedStickers] = useState([]); // [{ id, emoji, x, y }]
+const [draggingStickerId, setDraggingStickerId] = useState(null);
+const previewBoxRef = useRef(null);
 const [caption, setCaption] = useState("");
 const [mediaError, setMediaError] = useState("");
 const [isSubmitting, setIsSubmitting] = useState(false);
 
-// Visor de Historias Agrupadas estilo Instagram
+// Visor de Historias con Pausa Real, Respuesta de Chat y Menú de 3 Rayitas (Esquina Inferior Izquierda)
 const [storyViewer, setStoryViewer] = useState({
 open: false,
 groupIndex: 0,
@@ -439,6 +488,10 @@ storyIndex: 0,
 paused: false,
 progress: 0
 });
+const [storyMenuOpen, setStoryMenuOpen] = useState(false);
+const [storyReplyText, setStoryReplyText] = useState("");
+const [storyInputFocused, setStoryInputFocused] = useState(false);
+const storyPausedRef = useRef(false);
 const touchStartXRef = useRef(null);
 const longPressTimerRef = useRef(null);
 const wasLongPressRef = useRef(false);
@@ -447,7 +500,7 @@ const wasLongPressRef = useRef(false);
 const [commentInputs, setCommentInputs] = useState({});
 const [chatText, setChatText] = useState("");
 
-// Editar Perfil propio
+// Editar Perfil
 const [newProfileAvatar, setNewProfileAvatar] = useState("");
 const [newProfileUsername, setNewProfileUsername] = useState("");
 const [newProfilePassword, setNewProfilePassword] = useState("");
@@ -460,13 +513,17 @@ const [unreadStoriesCount, setUnreadStoriesCount] = useState(0);
 const prevMessagesLenRef = useRef(null);
 const prevStoriesLenRef = useRef(null);
 
-// Rotación de frases
+// Sincronizar pausa real de la historia (por botón, toque mantenido, menú abierto o escribiendo respuesta)
+const isStoryEffectivelyPaused = storyViewer.paused || storyMenuOpen || storyInputFocused;
+useEffect(() => {
+storyPausedRef.current = isStoryEffectivelyPaused;
+}, [isStoryEffectivelyPaused]);
+
 useEffect(() => {
 const t = setInterval(() => setQuoteIndex(p => (p + 1) % INSPIRATIONAL_QUOTES.length), 4500);
 return () => clearInterval(t);
 }, []);
 
-// Esperar Firebase
 useEffect(() => {
 if (window.FB) setFbReady(true);
 else {
@@ -476,7 +533,7 @@ return () => window.removeEventListener("firebase-ready", onReady);
 }
 }, []);
 
-// Escuchar Auth y Colecciones de Firestore en vivo
+// Escuchar Firebase en vivo
 useEffect(() => {
 if (!fbReady || !window.FB) return;
 const { auth, db, onAuthStateChanged, collection, onSnapshot, query, orderBy } = window.FB;
@@ -517,19 +574,17 @@ unsubAuth(); unsubUsers(); unsubPosts(); unsubStories(); unsubMessages();
 };
 }, [fbReady]);
 
-// Usuario actual registrado en la colección users
 const currentUserDoc = useMemo(() => {
 if (!authSession) return null;
 return users.find(u => u.uid === authSession.uid && u.username) || null;
 }, [users, authSession]);
 
-// Verificar si es joellpethers@gmail.com
 const isAdmin = useMemo(() => {
 const emailToCheck = (currentUserDoc?.email || authSession?.email || "").toLowerCase();
 return emailToCheck === ADMIN_EMAIL;
 }, [currentUserDoc, authSession]);
 
-// Agrupar Historias por Persona (Estilo Instagram: todas las de una persona juntas)
+// Agrupar Historias por Persona
 const storyGroups = useMemo(() => {
 const map = new Map();
 stories.forEach((st) => {
@@ -547,15 +602,14 @@ map.get(st.userId).items.push(st);
 return Array.from(map.values());
 }, [stories, users]);
 
-// Temporizador de 5 segundos para fotos en el Visor de Historias estilo Instagram
+// Temporizador de Historias con Pausa Real inmediata mediante storyPausedRef
 useEffect(() => {
-if (!storyViewer.open || storyViewer.paused) return;
+if (!storyViewer.open) return;
 const currentGroup = storyGroups[storyViewer.groupIndex];
 if (!currentGroup) return;
 const currentStory = currentGroup.items[storyViewer.storyIndex];
 if (!currentStory) return;
 
-// 5000ms (5 seg) para fotos, o la duración del video
 const durationMs = currentStory.mediaType === "video"
 ? Math.max(5000, (currentStory.videoDuration || 8) * 1000)
 : 5000;
@@ -564,10 +618,10 @@ const stepMs = 50;
 const increment = (stepMs / durationMs) * 100;
 
 const timer = setInterval(() => {
+if (storyPausedRef.current) return; // Pausa 100% real inmediata
 setStoryViewer((prev) => {
-if (prev.paused || !prev.open) return prev;
+if (!prev.open || storyPausedRef.current) return prev;
 if (prev.progress + increment >= 100) {
-// Pasar automáticamente a la siguiente historia de la misma persona o a la siguiente persona
 const grp = storyGroups[prev.groupIndex];
 if (grp && prev.storyIndex < grp.items.length - 1) {
 return { ...prev, storyIndex: prev.storyIndex + 1, progress: 0 };
@@ -582,10 +636,10 @@ return { ...prev, progress: prev.progress + increment };
 }, stepMs);
 
 return () => clearInterval(timer);
-}, [storyViewer.open, storyViewer.paused, storyViewer.groupIndex, storyViewer.storyIndex, storyGroups]);
+}, [storyViewer.open, storyViewer.groupIndex, storyViewer.storyIndex, storyGroups]);
 
-// Controles de navegación de Historias (Adelantar/Atrás o siguiente/anterior persona)
 const goNextStory = () => {
+setStoryMenuOpen(false);
 setStoryViewer((prev) => {
 const grp = storyGroups[prev.groupIndex];
 if (!grp) return { ...prev, open: false };
@@ -600,6 +654,7 @@ return { open: false, groupIndex: 0, storyIndex: 0, paused: false, progress: 0 }
 };
 
 const goPrevStory = () => {
+setStoryMenuOpen(false);
 setStoryViewer((prev) => {
 if (prev.storyIndex > 0) {
 return { ...prev, storyIndex: prev.storyIndex - 1, progress: 0 };
@@ -618,6 +673,7 @@ return { ...prev, storyIndex: 0, progress: 0 };
 };
 
 const goNextPersonStories = () => {
+setStoryMenuOpen(false);
 setStoryViewer((prev) => {
 if (prev.groupIndex < storyGroups.length - 1) {
 return { ...prev, groupIndex: prev.groupIndex + 1, storyIndex: 0, progress: 0 };
@@ -627,6 +683,7 @@ return { open: false, groupIndex: 0, storyIndex: 0, paused: false, progress: 0 }
 };
 
 const goPrevPersonStories = () => {
+setStoryMenuOpen(false);
 setStoryViewer((prev) => {
 if (prev.groupIndex > 0) {
 return { ...prev, groupIndex: prev.groupIndex - 1, storyIndex: 0, progress: 0 };
@@ -635,7 +692,68 @@ return { ...prev, storyIndex: 0, progress: 0 };
 });
 };
 
-// Latido de estado Online cada 35 segundos
+// Abrir las historias de un usuario específico (ej. desde su Perfil)
+const openStoriesForUser = (uid) => {
+const gIdx = storyGroups.findIndex(g => g.userId === uid);
+if (gIdx !== -1) {
+setStoryMenuOpen(false);
+setStoryViewer({ open: true, groupIndex: gIdx, storyIndex: 0, paused: false, progress: 0 });
+}
+};
+
+// Responder a una historia o chatear directo desde la historia
+const handleSendStoryReply = async (e, storyGroup, storyItem) => {
+e.preventDefault();
+if (!storyReplyText.trim() || !currentUserDoc || !window.FB) return;
+const { db, collection, addDoc } = window.FB;
+const chatKey = [currentUserDoc.uid, storyGroup.userId].sort().join("__");
+
+try {
+await addDoc(collection(db, "messages"), {
+chatKey,
+senderId: currentUserDoc.uid,
+senderName: currentUserDoc.username,
+senderAvatar: currentUserDoc.avatar,
+receiverId: storyGroup.userId,
+text: `Respondió a tu historia: "${storyReplyText.trim()}"`,
+sharedMediaUrl: storyItem.mediaUrl,
+sharedMediaType: storyItem.mediaType || "image",
+createdAt: Date.now()
+});
+setStoryReplyText("");
+setStoryInputFocused(false);
+setInAppToast({
+id: Date.now(),
+icon: "✅",
+title: `Respuesta enviada a @${storyGroup.userName}`,
+text: "Toca aquí para abrir el chat",
+action: () => {
+const friendObj = users.find(u => u.uid === storyGroup.userId);
+setStoryViewer(prev => ({ ...prev, open: false }));
+if (friendObj) {
+setViewedProfileUid(null);
+setActiveTab("chat");
+setChatSubTab("private");
+setActiveChatFriend(friendObj);
+}
+setInAppToast(null);
+}
+});
+} catch (err) {}
+};
+
+// Descargar/Guardar foto o video de la historia desde el menú de 3 rayitas
+const handleDownloadMedia = (mediaUrl, type = "image") => {
+const link = document.createElement("a");
+link.href = mediaUrl;
+link.download = `sunset-vibes-${Date.now()}.${type === "video" ? "mp4" : "jpg"}`;
+document.body.appendChild(link);
+link.click();
+document.body.removeChild(link);
+setStoryMenuOpen(false);
+};
+
+// Latido Online
 useEffect(() => {
 if (!currentUserDoc || !window.FB) return;
 const { db, doc, updateDoc } = window.FB;
@@ -651,7 +769,7 @@ window.removeEventListener("beforeunload", off);
 };
 }, [currentUserDoc?.uid]);
 
-// Notificaciones en vivo de Mensajes e Historias
+// Notificaciones en vivo
 useEffect(() => {
 if (!currentUserDoc) return;
 if (prevMessagesLenRef.current !== null && messages.length > prevMessagesLenRef.current) {
@@ -664,8 +782,9 @@ icon: newest.chatKey === "GLOBAL_GROUP" ? "🎉" : "💬",
 title: newest.chatKey === "GLOBAL_GROUP"
 ? `Chat Grupal • @${newest.senderName}`
 : `Mensaje de @${newest.senderName}`,
-text: newest.text || "Compartió una foto/video en el chat",
+text: newest.text || "Compartió una publicación",
 action: () => {
+setViewedProfileUid(null);
 setActiveTab("chat");
 if (newest.chatKey === "GLOBAL_GROUP") {
 setChatSubTab("group");
@@ -695,12 +814,9 @@ setInAppToast({
 id: Date.now(),
 icon: "🌅",
 title: `¡Nueva historia de @${newest.userName}!`,
-text: "Toca aquí para verla en pantalla completa",
+text: "Toca para verla ahora",
 action: () => {
-const gIdx = storyGroups.findIndex(g => g.userId === newest.userId);
-if (gIdx !== -1) {
-setStoryViewer({ open: true, groupIndex: gIdx, storyIndex: 0, paused: false, progress: 0 });
-}
+openStoriesForUser(newest.userId);
 setInAppToast(null);
 }
 });
@@ -716,7 +832,6 @@ const t = setTimeout(() => setInAppToast(null), 5000);
 return () => clearTimeout(t);
 }, [inAppToast]);
 
-// Abrir perfil de cualquier invitado (al tocar su @ en muro, historias, buscador o chat)
 const openUserProfile = (uid) => {
 if (!uid) return;
 setStoryViewer(prev => ({ ...prev, open: false }));
@@ -729,14 +844,13 @@ setViewedProfileUid(uid);
 }
 };
 
-// Cambiar reto al azar
-const nextRandomChallenge = () => {
-const avail = PHOTO_CHALLENGES.filter(c => c.id !== currentChallenge.id);
-setCurrentChallenge(avail[Math.floor(Math.random() * avail.length)]);
+// Avanzar los 10 retos uno por uno (del 1 al 10, y al pasar el 10 vuelve al 1)
+const nextSequentialChallenge = () => {
+setChallengeIndex((prev) => (prev + 1) % PHOTO_CHALLENGES.length);
 };
 
 // ====================================================================
-// FLUJO DE INICIO DE SESIÓN: GOOGLE O @USUARIO + CONTRASEÑA ÚNICA
+// AUTENTICACIÓN
 // ====================================================================
 const handleGoogleSignIn = async () => {
 setAuthError("");
@@ -748,7 +862,6 @@ setAuthError("Para usar el botón de Google en un dominio nuevo, agrégalo en Fi
 }
 };
 
-// Login o Registro directo con @usuario y contraseña
 const handleUsernamePasswordAuth = async (e) => {
 e.preventDefault();
 setAuthError("");
@@ -756,11 +869,10 @@ const cleanUser = loginUsername.trim().replace(/^@/, "").replace(/\s+/g, "_");
 const cleanPass = loginPassword.trim();
 
 if (cleanUser.length < 3 || cleanPass.length < 4) {
-setAuthError("El @usuario debe tener al menos 3 caracteres y la contraseña mínimo 4.");
+setAuthError("El @usuario debe tener mínimo 3 caracteres y la contraseña mínimo 4.");
 return;
 }
 
-// Permitir también que joellpethers@gmail.com inicie directo
 const matchedUser = users.find(
 u => (u.username || "").toLowerCase() === cleanUser.toLowerCase() ||
 (u.email || "").toLowerCase() === loginUsername.trim().toLowerCase()
@@ -768,11 +880,11 @@ u => (u.username || "").toLowerCase() === cleanUser.toLowerCase() ||
 
 if (authMode === "login") {
 if (!matchedUser) {
-setAuthError(`No encontramos a @${cleanUser}. Cambia a la pestaña "Crear Cuenta" para registrarte.`);
+setAuthError(`No encontramos a @${cleanUser}. Usa la pestaña "Registrar @Usuario".`);
 return;
 }
 if (matchedUser.password && matchedUser.password !== cleanPass) {
-setAuthError("Contraseña incorrecta. Intenta de nuevo.");
+setAuthError("Contraseña incorrecta.");
 return;
 }
 const sessionObj = {
@@ -784,9 +896,8 @@ defaultAvatar: matchedUser.avatar
 localStorage.setItem("sunset_vibes_session", JSON.stringify(sessionObj));
 setAuthSession(sessionObj);
 } else {
-// Modo Registro con @usuario y contraseña
 if (matchedUser) {
-setAuthError(`El nombre de usuario @${cleanUser} ya existe. Elige otro o inicia sesión.`);
+setAuthError(`El usuario @${cleanUser} ya está registrado.`);
 return;
 }
 const isEmailInput = loginUsername.includes("@") && loginUsername.includes(".");
@@ -813,12 +924,11 @@ const sessionObj = { uid, email: emailVal, defaultName: cleanUser, defaultAvatar
 localStorage.setItem("sunset_vibes_session", JSON.stringify(sessionObj));
 setAuthSession(sessionObj);
 } catch (err) {
-setAuthError("Error al registrar usuario en Firestore. Verifica las reglas.");
+setAuthError("Error al registrar usuario en Firestore.");
 }
 }
 };
 
-// Paso posterior a Google Sign-In: elegir @usuario único y contraseña
 const handleCompleteGoogleProfile = async (e) => {
 e.preventDefault();
 setSetupError("");
@@ -826,19 +936,18 @@ const cleanUser = setupUsername.trim().replace(/^@/, "").replace(/\s+/g, "_");
 const cleanPass = setupPassword.trim();
 
 if (cleanUser.length < 3) {
-setSetupError("El @usuario debe tener al menos 3 letras o números.");
+setSetupError("El @usuario debe tener al menos 3 caracteres.");
 return;
 }
 if (cleanPass.length < 4) {
-setSetupError("Crea una contraseña de al menos 4 caracteres para cuando quieras entrar directo.");
+setSetupError("Crea una contraseña de al menos 4 caracteres.");
 return;
 }
-
 const isTaken = users.some(
 u => u.uid !== authSession.uid && (u.username || "").toLowerCase() === cleanUser.toLowerCase()
 );
 if (isTaken) {
-setSetupError(`El usuario @${cleanUser} ya está ocupado. Elige otro distinto.`);
+setSetupError(`El usuario @${cleanUser} ya está ocupado.`);
 return;
 }
 
@@ -859,11 +968,10 @@ try {
 await window.FB.setDoc(window.FB.doc(window.FB.db, "users", authSession.uid), profileData, { merge: true });
 localStorage.setItem("sunset_vibes_session", JSON.stringify(authSession));
 } catch (err) {
-setSetupError("No se pudo guardar tu perfil. Revisa las reglas de Firestore.");
+setSetupError("Error guardando perfil.");
 }
 };
 
-// Cerrar sesión
 const handleLogout = async () => {
 if (currentUserDoc && window.FB) {
 try {
@@ -883,7 +991,7 @@ setActiveTab("feed");
 };
 
 // ====================================================================
-// ESTUDIO DE SUBIDA Y EDICIÓN (FILTROS, CORTES, TEXTO Y STICKERS)
+// ESTUDIO DE SUBIDA CON MÚLTIPLES STICKERS ARRASTRABLES
 // ====================================================================
 const resetUploadStudio = () => {
 setRawMediaUrl("");
@@ -894,9 +1002,32 @@ setSelectedCrop(CROP_RATIOS[0]);
 setOverlayText("");
 setOverlayColor(TEXT_COLORS[0]);
 setOverlayYPos(50);
-setOverlaySticker("");
+setPlacedStickers([]);
+setDraggingStickerId(null);
 setCaption("");
 setMediaError("");
+};
+
+const addStickerToCanvas = (emoji) => {
+const offset = (placedStickers.length * 9) % 40;
+setPlacedStickers(prev => [
+...prev,
+{ id: "st_" + Date.now() + "_" + Math.random().toString(36).slice(2, 5), emoji, x: 30 + offset, y: 25 + offset }
+]);
+};
+
+const removeStickerFromCanvas = (id) => {
+setPlacedStickers(prev => prev.filter(s => s.id !== id));
+};
+
+const handleStickerPointerMove = (clientX, clientY) => {
+if (!draggingStickerId || !previewBoxRef.current) return;
+const rect = previewBoxRef.current.getBoundingClientRect();
+const xPct = Math.max(8, Math.min(92, ((clientX - rect.left) / rect.width) * 100));
+const yPct = Math.max(8, Math.min(92, ((clientY - rect.top) / rect.height) * 100));
+setPlacedStickers(prev =>
+prev.map(st => st.id === draggingStickerId ? { ...st, x: Math.round(xPct), y: Math.round(yPct) } : st)
+);
 };
 
 const handleMediaFileChange = async (e) => {
@@ -933,7 +1064,6 @@ const { db, collection, addDoc } = window.FB;
 
 try {
 let finalMediaUrl = rawMediaUrl;
-// Si es imagen, horneamos el recorte, filtro, texto y sticker en un solo JPEG optimizado
 if (mediaType === "image") {
 finalMediaUrl = await bakeEditedImage(rawMediaUrl, {
 filterCss: selectedFilter.css,
@@ -941,7 +1071,7 @@ cropRatio: selectedCrop.ratio,
 overlayText,
 textColorObj: overlayColor,
 textYPos: overlayYPos,
-sticker: overlaySticker
+stickers: placedStickers
 });
 }
 
@@ -957,7 +1087,7 @@ cropId: selectedCrop.id,
 overlayText: mediaType === "video" ? overlayText.trim() : "",
 overlayColorId: overlayColor.id,
 overlayYPos,
-overlaySticker: mediaType === "video" ? overlaySticker : "",
+overlayStickers: mediaType === "video" ? placedStickers : [],
 caption: caption.trim(),
 createdAt: Date.now()
 };
@@ -967,8 +1097,10 @@ await addDoc(collection(db, "stories"), basePayload);
 } else {
 await addDoc(collection(db, "posts"), {
 ...basePayload,
+challengeId: uploadModal.withChallenge ? currentChallenge.id : null,
 challengeTitle: uploadModal.withChallenge ? `${currentChallenge.emoji} ${currentChallenge.title}` : null,
 likes: [],
+reactions: {},
 comments: []
 });
 }
@@ -976,14 +1108,32 @@ comments: []
 resetUploadStudio();
 setUploadModal({ open: false, type: "post", withChallenge: false });
 } catch (err) {
-setMediaError("No se pudo publicar. Si es un video, intenta que sea más corto.");
+setMediaError("Error al publicar. Si es un video, intenta que sea más corto.");
 } finally {
 setIsSubmitting(false);
 }
 };
 
+// Guardar Recorte de Bordes (Cuadro de recorte en el perfil)
+const handleApplyBorderCrop = async () => {
+if (!cropModalPost || isCroppingPost || !window.FB) return;
+setIsCroppingPost(true);
+try {
+const newUrl = await cropImageByBorders(cropModalPost.mediaUrl, borderCrop);
+await window.FB.updateDoc(window.FB.doc(window.FB.db, "posts", cropModalPost.id), {
+mediaUrl: newUrl
+});
+setCropModalPost(null);
+setBorderCrop({ top: 0, bottom: 0, left: 0, right: 0 });
+} catch (err) {
+alert("No se pudo recortar la imagen.");
+} finally {
+setIsCroppingPost(false);
+}
+};
+
 // ====================================================================
-// INTERACCIONES: LIKES, COMENTARIOS, BORRADO Y CONTROL ADMIN TOTAL
+// LIKES, REACCIONES REALES (CON CONTEO EN EL POST) Y COMENTARIOS
 // ====================================================================
 const toggleLike = async (post) => {
 if (!currentUserDoc || !window.FB) return;
@@ -996,8 +1146,29 @@ likes: hasLiked ? arrayRemove(currentUserDoc.uid) : arrayUnion(currentUserDoc.ui
 } catch (e) {}
 };
 
-const handleAddComment = async (postId, customText = null) => {
-const text = (customText !== null ? customText : (commentInputs[postId] || "")).trim();
+// Alternar Reacción Real (no comentario) con conteo en la publicación
+const toggleReaction = async (post, emoji) => {
+if (!currentUserDoc || !window.FB) return;
+const currentReactions = post.reactions ? { ...post.reactions } : {};
+const usersForEmoji = Array.isArray(currentReactions[emoji]) ? [...currentReactions[emoji]] : [];
+const idx = usersForEmoji.indexOf(currentUserDoc.uid);
+
+if (idx > -1) {
+usersForEmoji.splice(idx, 1);
+} else {
+usersForEmoji.push(currentUserDoc.uid);
+}
+currentReactions[emoji] = usersForEmoji;
+
+try {
+await window.FB.updateDoc(window.FB.doc(window.FB.db, "posts", post.id), {
+reactions: currentReactions
+});
+} catch (e) {}
+};
+
+const handleAddComment = async (postId) => {
+const text = (commentInputs[postId] || "").trim();
 if (!text || !currentUserDoc || !window.FB) return;
 const { db, doc, updateDoc, arrayUnion } = window.FB;
 const newComment = {
@@ -1010,13 +1181,10 @@ createdAt: Date.now()
 };
 try {
 await updateDoc(doc(db, "posts", postId), { comments: arrayUnion(newComment) });
-if (customText === null) {
 setCommentInputs(prev => ({ ...prev, [postId]: "" }));
-}
 } catch (e) {}
 };
 
-// Eliminar un comentario (El autor del comentario, el dueño del post o el Admin)
 const handleDeleteComment = async (post, commentObj) => {
 if (!currentUserDoc || !window.FB) return;
 if (commentObj.userId !== currentUserDoc.uid && post.userId !== currentUserDoc.uid && !isAdmin) return;
@@ -1026,7 +1194,6 @@ await window.FB.updateDoc(window.FB.doc(window.FB.db, "posts", post.id), { comme
 } catch (e) {}
 };
 
-// Eliminar Post (El dueño o el Admin joellpethers@gmail.com)
 const handleDeletePost = async (post) => {
 if (!currentUserDoc || !window.FB) return;
 if (post.userId !== currentUserDoc.uid && !isAdmin) return;
@@ -1037,7 +1204,6 @@ if (fullscreenPostId === post.id) setFullscreenPostId(null);
 } catch (e) {}
 };
 
-// Eliminar Historia (El dueño o el Admin joellpethers@gmail.com)
 const handleDeleteStory = async (story) => {
 if (!currentUserDoc || !window.FB) return;
 if (story.userId !== currentUserDoc.uid && !isAdmin) return;
@@ -1048,7 +1214,6 @@ setStoryViewer({ open: false, groupIndex: 0, storyIndex: 0, paused: false, progr
 } catch (e) {}
 };
 
-// Editar Post (El dueño o el Admin joellpethers@gmail.com)
 const handleSavePostEdit = async (e) => {
 e.preventDefault();
 if (!adminEditPost || !window.FB) return;
@@ -1061,7 +1226,6 @@ setAdminEditPost(null);
 } catch (e) {}
 };
 
-// Eliminar Mensaje Enviado (El remitente del mensaje o el Admin joellpethers@gmail.com)
 const handleDeleteMessage = async (msg) => {
 if (!currentUserDoc || !window.FB) return;
 if (msg.senderId !== currentUserDoc.uid && !isAdmin) return;
@@ -1071,7 +1235,6 @@ await window.FB.deleteDoc(window.FB.doc(window.FB.db, "messages", msg.id));
 } catch (e) {}
 };
 
-// Admin: Editar o Eliminar Perfil de cualquier usuario
 const handleAdminSaveUser = async (e) => {
 e.preventDefault();
 if (!isAdmin || !adminEditUser || !window.FB) return;
@@ -1112,7 +1275,6 @@ friends: isFriend ? arrayRemove(currentUserDoc.uid) : arrayUnion(currentUserDoc.
 } catch (e) {}
 };
 
-// Enviar mensaje al Chat Grupal o Privado
 const handleSendMessage = async (e) => {
 e.preventDefault();
 if (!chatText.trim() || !currentUserDoc || !window.FB) return;
@@ -1138,7 +1300,6 @@ setChatText("");
 } catch (e) {}
 };
 
-// Enviar publicación al Chat Grupal o Privado
 const handleSendPostToChat = async (targetType, targetFriend = null) => {
 if (!shareModalPost || !currentUserDoc || !window.FB) return;
 const { db, collection, addDoc } = window.FB;
@@ -1153,7 +1314,7 @@ senderId: currentUserDoc.uid,
 senderName: currentUserDoc.username,
 senderAvatar: currentUserDoc.avatar,
 receiverId: targetType === "group" ? "ALL" : targetFriend.uid,
-text: `Compartió la publicación de @${shareModalPost.userName}${shareModalPost.caption ? `: "${shareModalPost.caption}"` : ""}`,
+text: `Compartió de @${shareModalPost.userName}${shareModalPost.caption ? `: "${shareModalPost.caption}"` : ""}`,
 sharedMediaUrl: shareModalPost.mediaUrl,
 sharedMediaType: shareModalPost.mediaType || "image",
 sharedPostId: shareModalPost.id,
@@ -1162,6 +1323,7 @@ createdAt: Date.now()
 setShareModalPost(null);
 setFullscreenPostId(null);
 setViewedProfileUid(null);
+setStoryViewer(prev => ({ ...prev, open: false }));
 setActiveTab("chat");
 if (targetType === "group") {
 setChatSubTab("group");
@@ -1173,10 +1335,10 @@ setActiveChatFriend(targetFriend);
 } catch (e) {}
 };
 
-const handleExternalShare = async (post) => {
+const handleExternalShare = async (item) => {
 const shareData = {
 title: "Sunset Vibes",
-text: `Mira la publicación de @${post.userName} en Sunset Vibes`,
+text: `Mira esta publicación de @${item.userName} en Sunset Vibes`,
 url: window.location.href
 };
 if (navigator.share) {
@@ -1187,7 +1349,6 @@ alert("¡Enlace copiado al portapapeles!");
 }
 };
 
-// Guardar edición de Mi Perfil
 const handleSaveProfileEdit = async (e) => {
 e.preventDefault();
 setProfileEditError("");
@@ -1224,11 +1385,18 @@ setProfileEditError("Error al guardar cambios.");
 }
 };
 
-// Métricas y filtros
+// Métricas y listas filtradas
 const myPosts = posts.filter(p => p.userId === currentUserDoc?.uid);
 const myStories = stories.filter(s => s.userId === currentUserDoc?.uid);
 const myTotalLikes = myPosts.reduce((s, p) => s + (p.likes?.length || 0), 0);
 const myTotalComments = myPosts.reduce((s, p) => s + (p.comments?.length || 0), 0);
+
+// En el Chat Privado SOLO aparecen los amigos agregados
+const myFriendUsers = useMemo(() => {
+if (!currentUserDoc) return [];
+const friendIds = currentUserDoc.friends || [];
+return users.filter(u => u.uid !== currentUserDoc.uid && u.username && friendIds.includes(u.uid));
+}, [users, currentUserDoc]);
 
 const guestStats = useMemo(() => {
 return users.filter(u => u.username).map(u => {
@@ -1253,7 +1421,7 @@ return users
 }, [users, searchQuery]);
 
 // ====================================================================
-// PANTALLA 1: BIENVENIDA E INICIO DE SESIÓN (GOOGLE O @USUARIO + CLAVE)
+// PANTALLA 1: BIENVENIDA E INICIO DE SESIÓN
 // ====================================================================
 if (!authSession) {
 return (
@@ -1276,7 +1444,6 @@ La Red Social Oficial del Evento
 <p className="text-xs italic text-nude-100">{INSPIRATIONAL_QUOTES[quoteIndex]}</p>
 </div>
 
-{/* Botón Oficial de Google */}
 <button
 onClick={handleGoogleSignIn}
 className="w-full py-3.5 px-5 rounded-2xl bg-white text-[#090105] font-extrabold text-sm flex items-center justify-center gap-3 shadow-xl hover:bg-nude-100 transition"
@@ -1298,7 +1465,6 @@ O con @usuario y contraseña
 <div className="h-px flex-1 bg-nude-300/25"></div>
 </div>
 
-{/* Selector Iniciar Sesión vs Crear Cuenta */}
 <div className="grid grid-cols-2 gap-1.5 bg-burgundy-950 p-1 rounded-xl border border-nude-300/25 mb-4">
 <button
 type="button"
@@ -1391,7 +1557,7 @@ className="w-full mt-1 px-4 py-2.5 rounded-xl bg-burgundy-950 border border-nude
 }
 
 // ====================================================================
-// PANTALLA 2: COMPLETAR @USUARIO Y CONTRASEÑA TRAS LOGIN CON GOOGLE
+// PANTALLA 2: COMPLETAR @USUARIO Y CONTRASEÑA TRAS GOOGLE LOGIN
 // ====================================================================
 if (!currentUserDoc) {
 const previewAvatar = setupAvatar || authSession.defaultAvatar;
@@ -1400,7 +1566,7 @@ return (
 <div className="glass-card rounded-3xl max-w-md w-full p-7 border border-nude-300/40 space-y-5 text-center">
 <h2 className="font-serif text-2xl font-bold text-white">Elige tu @Usuario Único</h2>
 <p className="text-xs text-nude-200">
-Tu correo <strong>jamás será visible</strong>. Crea tu <strong>@usuario</strong> y una contraseña para tu perfil de la fiesta.
+Tu correo <strong>jamás será visible</strong>. Crea tu <strong>@usuario</strong> y contraseña para tu perfil de la fiesta.
 </p>
 
 <form onSubmit={handleCompleteGoogleProfile} className="space-y-4 text-left">
@@ -1464,7 +1630,6 @@ Confirmar y Entrar al Sunset ✨
 );
 }
 
-// Variables auxiliares de vista
 const groupMessages = messages.filter(m => m.chatKey === "GLOBAL_GROUP");
 const activePrivateChatKey = activeChatFriend
 ? [currentUserDoc.uid, activeChatFriend.uid].sort().join("__")
@@ -1473,6 +1638,7 @@ const privateMessages = messages.filter(m => m.chatKey === activePrivateChatKey)
 
 const viewedProfileUser = viewedProfileUid ? users.find(u => u.uid === viewedProfileUid) : null;
 const viewedUserPosts = viewedProfileUser ? posts.filter(p => p.userId === viewedProfileUser.uid) : [];
+const viewedUserStories = viewedProfileUser ? stories.filter(s => s.userId === viewedProfileUser.uid) : [];
 const fullscreenPost = fullscreenPostId ? posts.find(p => p.id === fullscreenPostId) : null;
 
 const activeStoryGroup = storyViewer.open ? storyGroups[storyViewer.groupIndex] : null;
@@ -1500,7 +1666,7 @@ Abrir
 </div>
 )}
 
-{/* BARRA SUPERIOR */}
+{/* BARRA SUPERIOR (Sin buscador arriba; el buscador está solo en la barra inferior) */}
 <header className="sticky top-0 z-30 glass-nav px-4 py-3 flex items-center justify-between border-b border-nude-300/25">
 <div
 onClick={() => { setViewedProfileUid(null); setActiveTab("feed"); }}
@@ -1522,20 +1688,14 @@ className="flex items-center gap-2.5 cursor-pointer"
 
 <div className="flex items-center gap-2">
 <button
-onClick={() => { setViewedProfileUid(null); setActiveTab("search"); }}
-className="px-2.5 py-1.5 rounded-full bg-burgundy-800 border border-nude-300/40 text-xs text-nude-200 font-bold"
->
-🔍 Buscar @
-</button>
-<button
 onClick={() => setQrModalOpen(true)}
-className="px-3 py-1.5 rounded-full nude-btn text-xs shadow"
+className="px-3.5 py-1.5 rounded-full nude-btn text-xs shadow"
 >
-QR
+QR Fiesta
 </button>
 <button
 onClick={handleLogout}
-className="px-2.5 py-1.5 rounded-full bg-burgundy-900 border border-nude-300/30 text-xs text-white font-semibold"
+className="px-3 py-1.5 rounded-full bg-burgundy-900 border border-nude-300/30 text-xs text-white font-semibold"
 >
 Salir
 </button>
@@ -1543,12 +1703,12 @@ Salir
 </header>
 
 {/* ========================================================== */}
-{/* PESTAÑA 1: MURO PRINCIPAL + HISTORIAS AGRUPADAS + RETOS */}
+{/* PESTAÑA 1: MURO PRINCIPAL + BURBUJA OVALADA DE HISTORIAS */}
 {/* ========================================================== */}
 {activeTab === "feed" && !viewedProfileUser && (
 <div className="p-4 space-y-5">
-{/* Carrusel de Historias Agrupadas por Persona (Estilo Instagram) */}
-<div className="flex items-center gap-3.5 overflow-x-auto no-scrollbar pb-1">
+{/* BURBUJA OVALADA DE ALTO CONTRASTE DETRÁS DE LAS HISTORIAS */}
+<div className="stories-oval-bubble rounded-full px-5 py-3.5 flex items-center gap-3.5 overflow-x-auto no-scrollbar">
 <button
 onClick={() => {
 resetUploadStudio();
@@ -1556,10 +1716,10 @@ setUploadModal({ open: true, type: "story", withChallenge: false });
 }}
 className="flex flex-col items-center shrink-0"
 >
-<div className="w-16 h-16 rounded-full bg-burgundy-900 border-2 border-dashed border-nude-300 flex items-center justify-center text-2xl text-nude-300">
+<div className="w-15 h-15 w-[60px] h-[60px] rounded-full bg-burgundy-950 border-2 border-dashed border-nude-300 flex items-center justify-center text-2xl text-nude-300 shadow-lg">
 +
 </div>
-<span className="text-[11px] mt-1 text-nude-200 font-bold">Tu Historia</span>
+<span className="text-[10px] mt-1 text-nude-100 font-extrabold">Subir Story</span>
 </button>
 
 {storyGroups.map((group, gIdx) => {
@@ -1570,11 +1730,12 @@ return (
 key={group.userId}
 onClick={() => {
 setUnreadStoriesCount(0);
+setStoryMenuOpen(false);
 setStoryViewer({ open: true, groupIndex: gIdx, storyIndex: 0, paused: false, progress: 0 });
 }}
 className="flex flex-col items-center shrink-0 relative"
 >
-<div className="w-16 h-16 rounded-full p-[2.5px] bg-gradient-to-tr from-amber-400 via-rose-500 to-nude-300 relative">
+<div className="w-[60px] h-[60px] rounded-full p-[2.5px] bg-gradient-to-tr from-amber-300 via-rose-500 to-nude-200 relative shadow-lg">
 <img
 src={group.userAvatar}
 alt={group.userName}
@@ -1591,7 +1752,7 @@ online ? "bg-emerald-500" : "bg-red-500"
 }`}
 ></span>
 </div>
-<span className="text-[11px] mt-1 text-white font-semibold truncate max-w-[72px]">
+<span className="text-[10px] mt-1 text-white font-bold truncate max-w-[68px]">
 @{group.userName}
 </span>
 </button>
@@ -1599,17 +1760,17 @@ online ? "bg-emerald-500" : "bg-red-500"
 })}
 </div>
 
-{/* Reto Fotográfico / Video al Azar */}
+{/* Sección de 10 Retos Secuenciales (1 al 10 y vuelve al 1) */}
 <div className="glass-card rounded-2xl p-4 border border-nude-300/40">
 <div className="flex items-center justify-between mb-1.5">
 <span className="text-[10px] uppercase tracking-widest px-2.5 py-0.5 rounded-full nude-btn">
-Reto Sunset al Azar
+Reto {challengeIndex + 1} de {PHOTO_CHALLENGES.length}
 </span>
 <button
-onClick={nextRandomChallenge}
+onClick={nextSequentialChallenge}
 className="text-xs text-nude-200 font-bold underline hover:text-white"
 >
-🎲 Pasar reto
+⏭️ Siguiente reto ({((challengeIndex + 1) % PHOTO_CHALLENGES.length) + 1}/{PHOTO_CHALLENGES.length})
 </button>
 </div>
 
@@ -1627,7 +1788,7 @@ setUploadModal({ open: true, type: "post", withChallenge: true });
 }}
 className="py-2.5 px-3 rounded-xl nude-btn text-xs shadow"
 >
-📸 Cumplir Reto
+📸 Subir con este Reto
 </button>
 <button
 onClick={() => {
@@ -1645,8 +1806,8 @@ className="py-2.5 px-3 rounded-xl bg-burgundy-800 border border-nude-300/40 text
 {posts.length === 0 ? (
 <div className="glass-card rounded-3xl p-8 text-center">
 <p className="text-3xl mb-2">🌅</p>
-<p className="text-base font-bold text-white">¡Sé el primero en subir una foto o video!</p>
-<p className="text-xs text-nude-200 mt-1">Usa nuestros filtros, textos y stickers del estudio Sunset.</p>
+<p className="text-base font-bold text-white">¡Sé el primero en inaugurar el muro!</p>
+<p className="text-xs text-nude-200 mt-1">Sube una foto o video con filtros y stickers arrastrables.</p>
 </div>
 ) : (
 posts.map((post) => {
@@ -1655,10 +1816,10 @@ const canManage = post.userId === currentUserDoc.uid || isAdmin;
 const authorObj = users.find(u => u.uid === post.userId);
 const online = isUserOnline(authorObj);
 const cropObj = CROP_RATIOS.find(c => c.id === post.cropId) || CROP_RATIOS[0];
+const postReactions = post.reactions || {};
 
 return (
 <div key={post.id} className="glass-card rounded-3xl overflow-hidden">
-{/* Cabecera limpia (Sin botón Enviar arriba, con acceso al perfil al tocar @usuario) */}
 <div className="p-3.5 flex items-center justify-between">
 <button
 onClick={() => openUserProfile(post.userId)}
@@ -1688,14 +1849,12 @@ Reto: {post.challengeTitle}
 <div className="flex items-center gap-1.5">
 <button
 onClick={() => setAdminEditPost({ ...post })}
-title="Editar publicación"
 className="text-xs text-nude-200 hover:text-white px-2.5 py-1 rounded-lg bg-burgundy-900 border border-nude-300/25"
 >
 ✏️
 </button>
 <button
 onClick={() => handleDeletePost(post)}
-title="Eliminar publicación"
 className="text-xs text-rose-300 hover:text-rose-100 px-2.5 py-1 rounded-lg bg-burgundy-950"
 >
 🗑️
@@ -1704,7 +1863,6 @@ className="text-xs text-rose-300 hover:text-rose-100 px-2.5 py-1 rounded-lg bg-b
 )}
 </div>
 
-{/* Foto o Video (Tocar abre vista completa, doble toque da Like) */}
 <div className="bg-black flex items-center justify-center overflow-hidden">
 <MediaRenderer
 item={post}
@@ -1713,9 +1871,9 @@ onDoubleClick={() => toggleLike(post)}
 />
 </div>
 
-{/* Barra de Acciones: Me Gusta, Comentario y Compartir AL LADO de Comentario */}
+{/* Acciones y Reacciones Reales con conteo propio */}
 <div className="p-4 space-y-2.5">
-<div className="flex items-center justify-between">
+<div className="flex items-center justify-between flex-wrap gap-2">
 <div className="flex items-center gap-2">
 <button
 onClick={() => toggleLike(post)}
@@ -1729,13 +1887,13 @@ isLiked ? "bg-rose-500 text-white" : "light-surface"
 
 <button
 onClick={() => setFullscreenPostId(post.id)}
-className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-full bg-burgundy-900 border border-nude-300/35 text-nude-100 hover:bg-burgundy-800"
+className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-full bg-burgundy-900 border border-nude-300/35 text-nude-100"
 >
 <span>💬</span>
 <span>{post.comments?.length || 0}</span>
 </button>
 
-{/* Botón de Compartir justo al lado del de Comentarios */}
+{/* Compartir justo al lado de Comentarios */}
 <button
 onClick={() => setShareModalPost(post)}
 className="flex items-center gap-1.5 text-xs font-extrabold px-3.5 py-1.5 rounded-full nude-btn shadow"
@@ -1745,17 +1903,26 @@ className="flex items-center gap-1.5 text-xs font-extrabold px-3.5 py-1.5 rounde
 </button>
 </div>
 
-{/* Reacciones rápidas de 1 toque */}
+{/* Reacciones Reales (No comentarios) con su conteo sobre la publicación */}
 <div className="flex items-center gap-1">
-{["🔥", "🥂", "😍"].map(emo => (
+{REACTION_EMOJIS.map((emo) => {
+const arr = Array.isArray(postReactions[emo]) ? postReactions[emo] : [];
+const iReacted = arr.includes(currentUserDoc.uid);
+return (
 <button
 key={emo}
-onClick={() => handleAddComment(post.id, emo)}
-className="w-7 h-7 rounded-full bg-burgundy-900 border border-nude-300/20 text-xs flex items-center justify-center hover:scale-110 transition"
+onClick={() => toggleReaction(post, emo)}
+className={`px-2 py-1 rounded-full text-xs font-extrabold flex items-center gap-1 border transition ${
+iReacted
+? "bg-amber-300 text-[#090105] border-amber-200 scale-105"
+: "bg-burgundy-900 text-white border-nude-300/25 hover:bg-burgundy-800"
+}`}
 >
-{emo}
+<span>{emo}</span>
+{arr.length > 0 && <span className="text-[11px]">{arr.length}</span>}
 </button>
-))}
+);
+})}
 </div>
 </div>
 
@@ -1771,7 +1938,6 @@ className="font-bold text-nude-300 mr-1.5 hover:underline"
 </p>
 )}
 
-{/* Comentarios */}
 {(post.comments || []).length > 0 && (
 <div className="space-y-1.5 pt-2 border-t border-nude-300/20 max-h-36 overflow-y-auto no-scrollbar">
 {post.comments.map((c) => {
@@ -1801,7 +1967,6 @@ className="text-[10px] text-rose-300 hover:text-rose-100 shrink-0"
 </div>
 )}
 
-{/* Escribir Comentario */}
 <div className="flex items-center gap-2 pt-1">
 <input
 type="text"
@@ -1827,17 +1992,20 @@ Comentar
 )}
 
 {/* ========================================================== */}
-{/* PESTAÑA 2: BUSCADOR DE @USUARIOS DE LA FIESTA */}
+{/* PESTAÑA 2: BUSCADOR PARA ENCONTRAR Y HACER AMIGOS */}
 {/* ========================================================== */}
 {activeTab === "search" && !viewedProfileUser && (
 <div className="p-4 space-y-4">
 <div className="glass-card rounded-3xl p-4 space-y-3">
-<h2 className="font-serif text-xl font-bold text-white">Buscar Invitados (@)</h2>
+<h2 className="font-serif text-xl font-bold text-white">Buscar Invitados y Hacer Amigos</h2>
+<p className="text-xs text-nude-200">
+Encuentra a tus amigos por su <strong>@usuario</strong>. Agrégalos como amigos para poder chatear en privado con ellos.
+</p>
 <div className="relative">
 <span className="absolute left-3.5 top-3 text-nude-300 font-bold text-sm">@</span>
 <input
 type="text"
-placeholder="Busca por nombre de usuario..."
+placeholder="Buscar @usuario..."
 value={searchQuery}
 onChange={(e) => setSearchQuery(e.target.value)}
 className="w-full pl-8 pr-4 py-2.5 rounded-2xl bg-burgundy-950 border border-nude-300/40 text-sm text-white focus:outline-none"
@@ -1874,7 +2042,7 @@ online ? "bg-emerald-500" : "bg-red-500"
 @{guest.username} {isMe && <span className="text-[10px] text-nude-300">(Tú)</span>}
 </p>
 <p className="text-[11px] text-nude-300">
-{online ? "🟢 Online" : "🔴 Offline"} • {guestPostsCount} publicaciones
+{online ? "🟢 Online" : "🔴 Offline"} • {guestPostsCount} posts
 </p>
 </div>
 </button>
@@ -1884,17 +2052,17 @@ online ? "bg-emerald-500" : "bg-red-500"
 <button
 onClick={() => toggleFriend(guest)}
 className={`px-3 py-1.5 rounded-xl text-xs font-extrabold ${
-isFriend ? "bg-burgundy-950 text-nude-300 border border-nude-300/40" : "nude-btn"
+isFriend ? "bg-burgundy-950 text-emerald-300 border border-emerald-400/40" : "nude-btn"
 }`}
 >
-{isFriend ? "✓ Amigos" : "+ Amigo"}
+{isFriend ? "✓ Amigos" : "+ Hacer Amigo"}
 </button>
 )}
 <button
 onClick={() => openUserProfile(guest.uid)}
 className="px-3 py-1.5 rounded-xl bg-burgundy-800 border border-nude-300/35 text-xs text-white font-bold"
 >
-Ver Perfil
+Perfil
 </button>
 </div>
 </div>
@@ -1905,8 +2073,7 @@ Ver Perfil
 )}
 
 {/* ========================================================== */}
-{/* PESTAÑA 3: CHAT GRUPAL Y PRIVADO */}
-{/* (ACCESO AL PERFIL DESDE EL CHAT Y BORRADO DE MENSAJES) */}
+{/* PESTAÑA 3: CHAT GRUPAL Y CHAT PRIVADO (SOLO AMIGOS) */}
 {/* ========================================================== */}
 {activeTab === "chat" && !viewedProfileUser && (
 <div className="p-4 space-y-4">
@@ -1925,7 +2092,7 @@ className={`py-2.5 rounded-xl text-xs font-extrabold transition ${
 chatSubTab === "private" ? "nude-btn shadow" : "text-nude-200"
 }`}
 >
-🥂 Chats Privados
+🥂 Amigos ({myFriendUsers.length})
 </button>
 </div>
 
@@ -1936,7 +2103,7 @@ chatSubTab === "private" ? "nude-btn shadow" : "text-nude-200"
 <div>
 <h3 className="text-sm font-bold text-white">🔥 Chat Grupal Sunset Vibes</h3>
 <p className="text-[10px] text-nude-300">
-Toca el @ o foto de cualquier invitado para visitar su perfil
+Toca cualquier @usuario para ver su perfil y agregarlo como amigo
 </p>
 </div>
 <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-bold">
@@ -1969,7 +2136,7 @@ className="relative shrink-0"
 )}
 
 <div
-className={`max-w-[78%] px-3.5 py-2.5 rounded-2xl text-xs relative group ${
+className={`max-w-[78%] px-3.5 py-2.5 rounded-2xl text-xs relative ${
 isMine
 ? "light-surface font-semibold rounded-br-none"
 : "bg-burgundy-900 border border-nude-300/30 text-white rounded-bl-none"
@@ -1987,9 +2154,8 @@ isMine ? "text-[#2E071B]" : "text-nude-300"
 {canDelMsg && (
 <button
 onClick={() => handleDeleteMessage(m)}
-title="Borrar mensaje"
 className={`text-[10px] font-bold px-1 rounded ${
-isMine ? "text-rose-800 hover:bg-black/10" : "text-rose-300 hover:text-white"
+isMine ? "text-rose-800" : "text-rose-300"
 }`}
 >
 🗑️
@@ -2032,12 +2198,11 @@ Enviar
 </div>
 )}
 
-{/* CHATS PRIVADOS */}
+{/* CHATS PRIVADOS: SOLO APARECEN LOS AMIGOS */}
 {chatSubTab === "private" && (
 activeChatFriend ? (
 <div className="glass-card rounded-3xl overflow-hidden flex flex-col h-[70vh]">
 <div className="p-3.5 bg-burgundy-950 border-b border-nude-300/25 flex items-center justify-between">
-{/* Tocar el nombre o foto en la caja de chat lleva a su Perfil */}
 <button
 onClick={() => openUserProfile(activeChatFriend.uid)}
 className="flex items-center gap-2.5 text-left group"
@@ -2064,14 +2229,14 @@ isUserOnline(activeChatFriend) ? "bg-emerald-500" : "bg-red-500"
 onClick={() => setActiveChatFriend(null)}
 className="px-3 py-1.5 rounded-full nude-btn text-xs"
 >
-← Lista
+← Mis Amigos
 </button>
 </div>
 
 <div className="flex-1 p-4 overflow-y-auto space-y-2.5">
 {privateMessages.length === 0 ? (
 <p className="text-xs text-center text-nude-200/70 pt-16">
-Saluda en privado a @{activeChatFriend.username} 🥂
+Inicia una charla privada con tu amigo @{activeChatFriend.username} 🥂
 </p>
 ) : (
 privateMessages.map((m) => {
@@ -2142,16 +2307,31 @@ Enviar
 </div>
 ) : (
 <div className="space-y-2.5">
-{users.filter(u => u.uid !== currentUserDoc.uid && u.username).map((guest) => {
-const online = isUserOnline(guest);
-return (
-<div key={guest.uid} className="glass-card rounded-2xl p-3.5 flex items-center justify-between">
+{myFriendUsers.length === 0 ? (
+<div className="glass-card rounded-3xl p-7 text-center space-y-3">
+<p className="text-3xl">🥂</p>
+<p className="text-sm font-bold text-white">Aún no tienes amigos en tu lista privada</p>
+<p className="text-xs text-nude-200">
+Usa el <strong>Buscador (@)</strong> abajo para encontrar a tus amigos en la fiesta y agregarlos.
+</p>
 <button
-onClick={() => openUserProfile(guest.uid)}
+onClick={() => setActiveTab("search")}
+className="px-5 py-2.5 rounded-full nude-btn text-xs shadow"
+>
+🔍 Ir al Buscador de Amigos
+</button>
+</div>
+) : (
+myFriendUsers.map((friend) => {
+const online = isUserOnline(friend);
+return (
+<div key={friend.uid} className="glass-card rounded-2xl p-3.5 flex items-center justify-between">
+<button
+onClick={() => openUserProfile(friend.uid)}
 className="flex items-center gap-3 text-left"
 >
 <div className="relative">
-<img src={guest.avatar} alt="" className="w-11 h-11 rounded-full object-cover border border-nude-300/50" />
+<img src={friend.avatar} alt="" className="w-11 h-11 rounded-full object-cover border border-nude-300/50" />
 <span
 className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-burgundy-950 ${
 online ? "bg-emerald-500" : "bg-red-500"
@@ -2159,22 +2339,23 @@ online ? "bg-emerald-500" : "bg-red-500"
 ></span>
 </div>
 <div>
-<p className="text-sm font-bold text-white hover:underline">@{guest.username}</p>
+<p className="text-sm font-bold text-white hover:underline">@{friend.username}</p>
 <p className="text-[10px] text-nude-300">
-{online ? "🟢 Online" : "🔴 Offline"} • Toca para ver perfil
+{online ? "🟢 Online" : "🔴 Offline"} • Amigo
 </p>
 </div>
 </button>
 
 <button
-onClick={() => setActiveChatFriend(guest)}
+onClick={() => setActiveChatFriend(friend)}
 className="px-4 py-2 rounded-xl nude-btn text-xs shadow"
 >
 💬 Chatear
 </button>
 </div>
 );
-})}
+})
+)}
 </div>
 )
 )}
@@ -2182,7 +2363,7 @@ className="px-4 py-2 rounded-xl nude-btn text-xs shadow"
 )}
 
 {/* ========================================================== */}
-{/* VISTA DE PERFIL DE OTRO INVITADO (DESDE CHAT, BUSCADOR O @)*/}
+{/* VISTA DE PERFIL DE OTRO INVITADO (CON SUS HISTORIAS) */}
 {/* ========================================================== */}
 {viewedProfileUser && (
 <div className="p-4 space-y-5">
@@ -2194,11 +2375,14 @@ className="px-4 py-1.5 rounded-full nude-btn text-xs shadow"
 </button>
 
 <div className="glass-card rounded-3xl p-6 text-center relative">
-<div className="relative inline-block">
+<div
+onClick={() => viewedUserStories.length > 0 && openStoriesForUser(viewedProfileUser.uid)}
+className={`relative inline-block ${viewedUserStories.length > 0 ? "cursor-pointer p-1 rounded-full bg-gradient-to-tr from-amber-400 via-rose-500 to-nude-300" : ""}`}
+>
 <img
 src={viewedProfileUser.avatar}
 alt={viewedProfileUser.username}
-className="w-24 h-24 rounded-full mx-auto object-cover border-2 border-nude-300 shadow-xl"
+className="w-24 h-24 rounded-full mx-auto object-cover border-2 border-burgundy-950 shadow-xl"
 />
 <span
 className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-burgundy-950 ${
@@ -2215,19 +2399,17 @@ isUserOnline(viewedProfileUser) ? "bg-emerald-500" : "bg-red-500"
 <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-nude-300/20">
 <div>
 <p className="text-lg font-bold text-white">{viewedUserPosts.length}</p>
-<p className="text-[10px] uppercase text-nude-300 font-bold">Publicaciones</p>
+<p className="text-[10px] uppercase text-nude-300 font-bold">Posts</p>
+</div>
+<div>
+<p className="text-lg font-bold text-white">{viewedUserStories.length}</p>
+<p className="text-[10px] uppercase text-nude-300 font-bold">Historias</p>
 </div>
 <div>
 <p className="text-lg font-bold text-rose-300">
 {viewedUserPosts.reduce((s, p) => s + (p.likes?.length || 0), 0)}
 </p>
-<p className="text-[10px] uppercase text-nude-300 font-bold">Me gusta</p>
-</div>
-<div>
-<p className="text-lg font-bold text-amber-300">
-{viewedUserPosts.reduce((s, p) => s + (p.comments?.length || 0), 0)}
-</p>
-<p className="text-[10px] uppercase text-nude-300 font-bold">Comentarios</p>
+<p className="text-[10px] uppercase text-nude-300 font-bold">Likes</p>
 </div>
 </div>
 
@@ -2236,10 +2418,13 @@ isUserOnline(viewedProfileUser) ? "bg-emerald-500" : "bg-red-500"
 onClick={() => toggleFriend(viewedProfileUser)}
 className="py-2.5 rounded-xl nude-btn text-xs shadow"
 >
-{(currentUserDoc.friends || []).includes(viewedProfileUser.uid) ? "✓ Amigos" : "+ Agregar Amigo"}
+{(currentUserDoc.friends || []).includes(viewedProfileUser.uid) ? "✓ Amigos" : "+ Hacer Amigo"}
 </button>
 <button
 onClick={() => {
+if (!(currentUserDoc.friends || []).includes(viewedProfileUser.uid)) {
+toggleFriend(viewedProfileUser);
+}
 setViewedProfileUid(null);
 setActiveTab("chat");
 setChatSubTab("private");
@@ -2247,19 +2432,47 @@ setActiveChatFriend(viewedProfileUser);
 }}
 className="py-2.5 rounded-xl bg-burgundy-800 border border-nude-300/40 text-white font-bold text-xs"
 >
-💬 Enviar Mensaje
+💬 Chatear
 </button>
 </div>
 </div>
 
-{/* Galería de Fotos/Videos del Invitado (Tocar abre Vista Pantalla Completa) */}
+{/* Historias de este invitado visibles en su Perfil */}
+{viewedUserStories.length > 0 && (
+<div className="space-y-2">
+<h3 className="text-xs font-extrabold uppercase tracking-wider text-nude-300">
+Historias de @{viewedProfileUser.username} ({viewedUserStories.length})
+</h3>
+<div className="stories-oval-bubble rounded-full px-4 py-3 flex items-center gap-3 overflow-x-auto no-scrollbar">
+{viewedUserStories.map((st, idx) => (
+<button
+key={st.id}
+onClick={() => {
+const gIdx = storyGroups.findIndex(g => g.userId === viewedProfileUser.uid);
+if (gIdx !== -1) {
+setStoryMenuOpen(false);
+setStoryViewer({ open: true, groupIndex: gIdx, storyIndex: idx, paused: false, progress: 0 });
+}
+}}
+className="shrink-0 relative"
+>
+<div className="w-14 h-14 rounded-full p-0.5 bg-gradient-to-tr from-amber-300 via-rose-500 to-nude-200">
+<img src={st.mediaType === "video" ? viewedProfileUser.avatar : st.mediaUrl} alt="" className="w-full h-full object-cover rounded-full border-2 border-burgundy-950" />
+</div>
+</button>
+))}
+</div>
+</div>
+)}
+
+{/* Publicaciones del invitado */}
 <div>
 <h3 className="text-xs font-extrabold uppercase tracking-wider text-nude-300 mb-3">
-Fotos y Videos de @{viewedProfileUser.username} (Toca para ampliar)
+Publicaciones de @{viewedProfileUser.username}
 </h3>
 {viewedUserPosts.length === 0 ? (
 <p className="text-xs text-nude-200/70 glass-card p-6 rounded-2xl text-center">
-Este invitado aún no ha subido fotos ni videos.
+Aún no ha subido publicaciones al muro.
 </p>
 ) : (
 <div className="grid grid-cols-2 gap-3">
@@ -2274,7 +2487,7 @@ className="glass-card rounded-2xl overflow-hidden cursor-pointer hover:scale-[1.
 </div>
 <div className="p-2.5 flex items-center justify-between text-xs">
 <span>❤️ {p.likes?.length || 0} • 💬 {p.comments?.length || 0}</span>
-<span className="text-[10px] text-nude-300 font-bold">Ver ⤢</span>
+<span className="text-[10px] text-nude-300 font-bold">Abrir ⤢</span>
 </div>
 </div>
 ))}
@@ -2285,16 +2498,19 @@ className="glass-card rounded-2xl overflow-hidden cursor-pointer hover:scale-[1.
 )}
 
 {/* ========================================================== */}
-{/* PESTAÑA 4: MI PERFIL */}
+{/* PESTAÑA 4: MI PERFIL (CON MIS HISTORIAS Y RECORTE DE FOTOS)*/}
 {/* ========================================================== */}
 {activeTab === "profile" && !viewedProfileUser && (
 <div className="p-4 space-y-5">
 <div className="glass-card rounded-3xl p-6 text-center relative">
-<div className="relative inline-block">
+<div
+onClick={() => myStories.length > 0 && openStoriesForUser(currentUserDoc.uid)}
+className={`relative inline-block ${myStories.length > 0 ? "cursor-pointer p-1 rounded-full bg-gradient-to-tr from-amber-400 via-rose-500 to-nude-300" : ""}`}
+>
 <img
 src={currentUserDoc.avatar}
 alt={currentUserDoc.username}
-className="w-24 h-24 rounded-full mx-auto object-cover border-2 border-nude-300 shadow-xl"
+className="w-24 h-24 rounded-full mx-auto object-cover border-2 border-burgundy-950 shadow-xl"
 />
 <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-burgundy-950"></span>
 </div>
@@ -2356,9 +2572,38 @@ className="py-2.5 rounded-xl bg-burgundy-800 border border-nude-300/40 text-whit
 </div>
 </div>
 
+{/* Mis Historias Visibles en Mi Perfil */}
+{myStories.length > 0 && (
+<div className="space-y-2">
+<h3 className="text-xs font-extrabold uppercase tracking-wider text-nude-300">
+Mis Historias Subidas ({myStories.length})
+</h3>
+<div className="stories-oval-bubble rounded-full px-4 py-3 flex items-center gap-3 overflow-x-auto no-scrollbar">
+{myStories.map((st, idx) => (
+<button
+key={st.id}
+onClick={() => {
+const gIdx = storyGroups.findIndex(g => g.userId === currentUserDoc.uid);
+if (gIdx !== -1) {
+setStoryMenuOpen(false);
+setStoryViewer({ open: true, groupIndex: gIdx, storyIndex: idx, paused: false, progress: 0 });
+}
+}}
+className="shrink-0 relative"
+>
+<div className="w-14 h-14 rounded-full p-0.5 bg-gradient-to-tr from-amber-300 via-rose-500 to-nude-200">
+<img src={st.mediaType === "video" ? currentUserDoc.avatar : st.mediaUrl} alt="" className="w-full h-full object-cover rounded-full border-2 border-burgundy-950" />
+</div>
+</button>
+))}
+</div>
+</div>
+)}
+
+{/* Mis Publicaciones con botón de Recortar Bordes (✂️) */}
 <div>
 <h3 className="text-xs font-extrabold uppercase tracking-wider text-nude-300 mb-3">
-Mis Publicaciones ({myPosts.length})
+Mis Publicaciones ({myPosts.length}) • Toca ✂️ para recortar bordes
 </h3>
 {myPosts.length === 0 ? (
 <p className="text-xs text-nude-200/70 glass-card p-6 rounded-2xl text-center">
@@ -2373,7 +2618,19 @@ Aún no has subido fotos ni videos.
 </div>
 <div className="p-2.5 flex items-center justify-between text-xs">
 <span>❤️ {p.likes?.length || 0} • 💬 {p.comments?.length || 0}</span>
-<div className="flex gap-2">
+<div className="flex items-center gap-1.5">
+{p.mediaType !== "video" && (
+<button
+onClick={() => {
+setBorderCrop({ top: 0, bottom: 0, left: 0, right: 0 });
+setCropModalPost(p);
+}}
+title="Recortar bordes de la foto"
+className="px-1.5 py-0.5 rounded bg-nude-300 text-[#090105] font-extrabold text-[10px]"
+>
+✂️
+</button>
+)}
 <button onClick={() => setAdminEditPost({ ...p })} className="text-nude-200">✏️</button>
 <button onClick={() => handleDeletePost(p)} className="text-rose-300 font-bold">🗑️</button>
 </div>
@@ -2387,18 +2644,15 @@ Aún no has subido fotos ni videos.
 )}
 
 {/* ========================================================== */}
-{/* PESTAÑA 5: PANEL CONTROL TOTAL (joellpethers@gmail.com) */}
+{/* PESTAÑA 5: PANEL ADMIN (INVITADOS + RETOS POR SECCIONES) */}
 {/* ========================================================== */}
 {activeTab === "admin" && isAdmin && !viewedProfileUser && (
 <div className="p-4 space-y-4">
 <div className="glass-card rounded-3xl p-5 border border-amber-300/50">
 <span className="text-[10px] uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-amber-300 text-[#090105] font-extrabold">
-Super Administrador • Control Total
+Super Administrador • {ADMIN_EMAIL}
 </span>
-<h2 className="font-serif text-2xl font-bold text-white mt-2">Panel de {ADMIN_EMAIL}</h2>
-<p className="text-xs text-nude-200 mt-0.5">
-Tienes permiso total para editar o eliminar cualquier usuario, foto, video, historia, comentario o mensaje.
-</p>
+<h2 className="font-serif text-2xl font-bold text-white mt-2">Panel de Control Total</h2>
 
 <div className="grid grid-cols-3 gap-2.5 mt-4 text-center">
 <div className="bg-burgundy-950 p-3 rounded-2xl border border-nude-300/20">
@@ -2410,18 +2664,37 @@ Tienes permiso total para editar o eliminar cualquier usuario, foto, video, hist
 <p className="text-[10px] uppercase text-nude-300">Fotos/Stories</p>
 </div>
 <div className="bg-burgundy-950 p-3 rounded-2xl border border-nude-300/20">
-<p className="text-xl font-bold text-rose-300">
-{posts.reduce((s, p) => s + (p.likes?.length || 0), 0)}
+<p className="text-xl font-bold text-amber-300">
+{posts.filter(p => !!p.challengeTitle).length}
 </p>
-<p className="text-[10px] uppercase text-nude-300">Likes</p>
-</div>
+<p className="text-[10px] uppercase text-nude-300">Retos Subidos</p>
 </div>
 </div>
 
+{/* Selector Admin: Control de Invitados vs Retos por Secciones */}
+<div className="grid grid-cols-2 gap-2 mt-4 bg-burgundy-950 p-1.5 rounded-2xl border border-nude-300/25">
+<button
+onClick={() => setAdminSubTab("guests")}
+className={`py-2 rounded-xl text-xs font-extrabold ${
+adminSubTab === "guests" ? "nude-btn" : "text-nude-200"
+}`}
+>
+👥 Invitados ({guestStats.length})
+</button>
+<button
+onClick={() => setAdminSubTab("challenges")}
+className={`py-2 rounded-xl text-xs font-extrabold ${
+adminSubTab === "challenges" ? "nude-btn" : "text-nude-200"
+}`}
+>
+🎯 Retos por Sección (10)
+</button>
+</div>
+</div>
+
+{/* SUB-VISTA A: LISTA DE INVITADOS */}
+{adminSubTab === "guests" && (
 <div className="space-y-2.5">
-<h3 className="text-xs font-bold uppercase tracking-wider text-nude-300 px-1">
-Control de Invitados ({guestStats.length})
-</h3>
 {guestStats.map((g) => (
 <div key={g.uid} className="glass-card rounded-2xl p-4 space-y-2.5">
 <div className="flex items-center justify-between">
@@ -2468,18 +2741,72 @@ className="px-2.5 py-1 rounded-lg bg-rose-950 text-xs text-rose-200 font-bold"
 <span className="text-[10px] text-nude-300">Likes</span>
 </div>
 <div>
-<span className="block font-bold text-amber-300">{g.commentsReceived}</span>
-<span className="text-[10px] text-nude-300">Coment.</span>
+<span className="block font-bold text-amber-300">{g.challengesDone}</span>
+<span className="text-[10px] text-nude-300">Retos</span>
 </div>
 </div>
 </div>
 ))}
 </div>
+)}
+
+{/* SUB-VISTA B: LOS 10 RETOS SEPARADOS POR SECCIONES CON SUS FOTOS/VIDEOS */}
+{adminSubTab === "challenges" && (
+<div className="space-y-4">
+{PHOTO_CHALLENGES.map((ch, idx) => {
+const fullTitle = `${ch.emoji} ${ch.title}`;
+const chPosts = posts.filter(
+p => p.challengeId === ch.id || p.challengeTitle === fullTitle
+);
+return (
+<div key={ch.id} className="glass-card rounded-3xl p-4 space-y-3 border border-nude-300/30">
+<div className="flex items-center justify-between">
+<div>
+<span className="text-[10px] uppercase tracking-wider text-amber-300 font-extrabold">
+Sección Reto #{idx + 1}
+</span>
+<h4 className="text-sm font-bold text-white">
+{ch.emoji} {ch.title}
+</h4>
+</div>
+<span className="px-3 py-1 rounded-full nude-btn text-xs">
+{chPosts.length} subidas
+</span>
+</div>
+
+{chPosts.length === 0 ? (
+<p className="text-xs text-nude-300/60 italic py-2">
+Ningún invitado ha subido fotos o videos para este reto todavía.
+</p>
+) : (
+<div className="grid grid-cols-2 gap-2.5">
+{chPosts.map((p) => (
+<div
+key={p.id}
+onClick={() => setFullscreenPostId(p.id)}
+className="bg-burgundy-950 rounded-2xl overflow-hidden border border-nude-300/20 cursor-pointer"
+>
+<div className="h-32 bg-black overflow-hidden">
+<MediaRenderer item={p} className="w-full h-full object-cover" controls={false} />
+</div>
+<div className="p-2 flex items-center justify-between text-[11px]">
+<span className="font-bold text-white truncate">@{p.userName}</span>
+<span className="text-rose-300">❤️ {p.likes?.length || 0}</span>
+</div>
+</div>
+))}
+</div>
+)}
+</div>
+);
+})}
+</div>
+)}
 </div>
 )}
 
 {/* ========================================================== */}
-{/* VISOR DE HISTORIAS AGRUPADAS ESTILO INSTAGRAM (100% FULL) */}
+{/* VISOR DE HISTORIAS PANTALLA COMPLETA (PAUSA REAL + CHAT + ☰)*/}
 {/* ========================================================== */}
 {storyViewer.open && activeStoryGroup && activeStoryItem && (
 <div
@@ -2490,7 +2817,7 @@ wasLongPressRef.current = false;
 longPressTimerRef.current = setTimeout(() => {
 wasLongPressRef.current = true;
 setStoryViewer(prev => ({ ...prev, paused: true }));
-}, 220);
+}, 200);
 }}
 onTouchEnd={(e) => {
 if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
@@ -2500,15 +2827,14 @@ return;
 }
 const endX = e.changedTouches[0].clientX;
 const diffX = endX - (touchStartXRef.current || endX);
-// Deslizar (Swipe) cambia a la siguiente o anterior persona
 if (Math.abs(diffX) > 65) {
 if (diffX < 0) goNextPersonStories();
 else goPrevPersonStories();
 }
 }}
 >
-{/* BARRAS DE PROGRESO SEGMENTADAS POR CADA HISTORIA DE LA PERSONA */}
-<div className="absolute top-0 left-0 right-0 z-30 p-3 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
+{/* BARRAS DE PROGRESO SUPERIORES */}
+<div className="absolute top-0 left-0 right-0 z-30 p-3 bg-gradient-to-b from-black/85 via-black/40 to-transparent">
 <div className="flex gap-1.5 mb-3">
 {activeStoryGroup.items.map((st, idx) => {
 let widthPct = 0;
@@ -2525,7 +2851,6 @@ style={{ width: `${widthPct}%` }}
 })}
 </div>
 
-{/* Cabecera con @usuario que lo subió (tocar va a su perfil), botón Pausar y Eliminar */}
 <div className="flex items-center justify-between">
 <button
 onClick={(e) => {
@@ -2544,7 +2869,7 @@ className="w-9 h-9 rounded-full object-cover border border-white"
 @{activeStoryGroup.userName}
 </p>
 <p className="text-[10px] text-white/80">
-{storyViewer.storyIndex + 1} de {activeStoryGroup.items.length}
+{storyViewer.storyIndex + 1} de {activeStoryGroup.items.length} {isStoryEffectivelyPaused && "• ⏸ Pausado"}
 </p>
 </div>
 </button>
@@ -2552,9 +2877,9 @@ className="w-9 h-9 rounded-full object-cover border border-white"
 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
 <button
 onClick={() => setStoryViewer(prev => ({ ...prev, paused: !prev.paused }))}
-className="px-3 py-1 rounded-full bg-black/60 border border-white/30 text-white text-xs font-bold"
+className="px-3 py-1 rounded-full bg-black/70 border border-white/40 text-white text-xs font-extrabold"
 >
-{storyViewer.paused ? "▶ Reanudar" : "⏸ Pausar"}
+{storyViewer.paused ? "▶ Reanudar" : "⏸ Detener"}
 </button>
 
 {(activeStoryItem.userId === currentUserDoc.uid || isAdmin) && (
@@ -2567,8 +2892,11 @@ className="px-2.5 py-1 rounded-full bg-rose-600 text-white text-xs font-bold"
 )}
 
 <button
-onClick={() => setStoryViewer({ open: false, groupIndex: 0, storyIndex: 0, paused: false, progress: 0 })}
-className="w-8 h-8 rounded-full bg-black/60 text-white font-bold text-sm flex items-center justify-center"
+onClick={() => {
+setStoryMenuOpen(false);
+setStoryViewer({ open: false, groupIndex: 0, storyIndex: 0, paused: false, progress: 0 });
+}}
+className="w-8 h-8 rounded-full bg-black/70 text-white font-bold text-sm flex items-center justify-center"
 >
 ✕
 </button>
@@ -2576,39 +2904,194 @@ className="w-8 h-8 rounded-full bg-black/60 text-white font-bold text-sm flex it
 </div>
 </div>
 
-{/* IMAGEN O VIDEO EN PANTALLA COMPLETA */}
+{/* IMAGEN O VIDEO DE LA HISTORIA EN PANTALLA COMPLETA */}
 <div className="w-full h-full flex items-center justify-center relative overflow-hidden">
 <MediaRenderer
 item={activeStoryItem}
 className="w-full h-full object-contain"
 autoPlay={true}
 controls={false}
+paused={isStoryEffectivelyPaused}
 />
 
-{/* ZONAS INVISIBLES DE NAVEGACIÓN ESTILO INSTAGRAM (Izquierda atrás / Derecha adelante) */}
+{/* Zonas invisibles izquierda (atrás) y derecha (adelante) */}
 <div
 onClick={() => { if (!wasLongPressRef.current) goPrevStory(); }}
-className="absolute inset-y-16 left-0 w-1/3 z-20 cursor-pointer"
+className="absolute inset-y-20 left-0 w-1/3 z-20 cursor-pointer"
 ></div>
 <div
 onClick={() => { if (!wasLongPressRef.current) goNextStory(); }}
-className="absolute inset-y-16 right-0 w-2/3 z-20 cursor-pointer"
+className="absolute inset-y-20 right-0 w-2/3 z-20 cursor-pointer"
 ></div>
 </div>
 
-{/* Pie de foto de la historia */}
+{/* Pie de foto si tiene */}
 {activeStoryItem.caption && (
-<div className="absolute bottom-6 left-4 right-4 z-30 text-center pointer-events-none">
-<span className="inline-block px-4 py-2 rounded-2xl bg-black/75 text-white text-sm font-medium border border-white/15">
+<div className="absolute bottom-20 left-4 right-4 z-30 text-center pointer-events-none">
+<span className="inline-block px-4 py-1.5 rounded-2xl bg-black/75 text-white text-xs font-semibold border border-white/15">
 {activeStoryItem.caption}
 </span>
 </div>
 )}
+
+{/* BARRA INFERIOR DE LA HISTORIA: 3 RAYITAS (ESQUINA INFERIOR IZQUIERDA) + RESPONDER/CHATEAR */}
+<div
+onClick={(e) => e.stopPropagation()}
+onTouchStart={(e) => e.stopPropagation()}
+className="absolute bottom-0 left-0 right-0 z-40 p-3 bg-gradient-to-t from-black/95 via-black/75 to-transparent flex items-center gap-2.5"
+>
+{/* Botón de 3 Rayitas en la esquina inferior izquierda */}
+<div className="relative">
+<button
+type="button"
+onClick={() => setStoryMenuOpen(prev => !prev)}
+className="w-11 h-11 rounded-2xl bg-burgundy-900/90 border border-nude-300/50 text-white font-extrabold text-lg flex items-center justify-center shadow-lg"
+title="Opciones de historia"
+>
+☰
+</button>
+
+{/* Menú desplegable de las 3 rayitas (Compartir, Guardar, etc.) */}
+{storyMenuOpen && (
+<div className="absolute bottom-14 left-0 w-56 glass-card rounded-2xl p-2 border border-nude-300/40 shadow-2xl space-y-1">
+<button
+onClick={() => {
+setStoryMenuOpen(false);
+setShareModalPost({
+id: activeStoryItem.id,
+userName: activeStoryGroup.userName,
+mediaUrl: activeStoryItem.mediaUrl,
+mediaType: activeStoryItem.mediaType,
+caption: activeStoryItem.caption
+});
+}}
+className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-burgundy-800 text-xs font-bold text-white flex items-center gap-2"
+>
+📤 Compartir en Chat
+</button>
+<button
+onClick={() => handleExternalShare(activeStoryItem)}
+className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-burgundy-800 text-xs font-bold text-white flex items-center gap-2"
+>
+📲 Compartir fuera de la App
+</button>
+<button
+onClick={() => handleDownloadMedia(activeStoryItem.mediaUrl, activeStoryItem.mediaType)}
+className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-burgundy-800 text-xs font-bold text-nude-200 flex items-center gap-2"
+>
+💾 Guardar en mi dispositivo
+</button>
+</div>
+)}
+</div>
+
+{/* Caja para responder a la historia o ir al chat */}
+<form
+onSubmit={(e) => handleSendStoryReply(e, activeStoryGroup, activeStoryItem)}
+className="flex-1 flex items-center gap-2"
+>
+<input
+type="text"
+placeholder={`Responder a @${activeStoryGroup.userName}...`}
+value={storyReplyText}
+onFocus={() => setStoryInputFocused(true)}
+onBlur={() => setStoryInputFocused(false)}
+onChange={(e) => setStoryReplyText(e.target.value)}
+className="flex-1 px-4 py-2.5 rounded-full bg-black/75 border border-nude-300/50 text-xs text-white placeholder-nude-200/70 focus:outline-none"
+/>
+<button
+type="submit"
+className="px-4 py-2.5 rounded-full nude-btn text-xs shadow"
+>
+Enviar
+</button>
+</form>
+</div>
 </div>
 )}
 
 {/* ========================================================== */}
-{/* VISTA PANTALLA COMPLETA DE PUBLICACIÓN (DESDE PERFIL/MURO) */}
+{/* MODAL: CUADRO DE RECORTE DE BORDES PARA FOTOS SUBIDAS */}
+{/* ========================================================== */}
+{cropModalPost && (
+<div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md p-4 flex items-center justify-center overflow-y-auto">
+<div className="glass-card rounded-3xl max-w-md w-full p-5 border border-nude-300/40 space-y-4 my-auto">
+<div className="flex items-center justify-between">
+<h3 className="font-serif text-xl font-bold text-white">✂️ Recortar Bordes de la Foto</h3>
+<button onClick={() => setCropModalPost(null)} className="text-nude-300 font-bold">✕</button>
+</div>
+
+<p className="text-xs text-nude-200">
+Ajusta el cuadro guía para elegir qué bordes deseas cortar de tu publicación.
+</p>
+
+{/* Vista previa con Cuadro de Recorte Interactivo */}
+<div className="relative w-full h-64 bg-black rounded-2xl overflow-hidden flex items-center justify-center border border-nude-300/30">
+<img src={cropModalPost.mediaUrl} alt="" className="w-full h-full object-contain" />
+{/* Cuadro guía de los bordes seleccionados */}
+<div
+style={{
+top: `${borderCrop.top}%`,
+bottom: `${borderCrop.bottom}%`,
+left: `${borderCrop.left}%`,
+right: `${borderCrop.right}%`
+}}
+className="absolute border-2 border-amber-300 shadow-[0_0_0_9999px_rgba(0,0,0,0.65)] pointer-events-none rounded-lg"
+></div>
+</div>
+
+<div className="grid grid-cols-2 gap-3 text-xs bg-burgundy-950 p-3.5 rounded-2xl border border-nude-300/20">
+<div>
+<label className="font-bold text-nude-200">Borde Superior ({borderCrop.top}%)</label>
+<input
+type="range" min="0" max="40"
+value={borderCrop.top}
+onChange={(e) => setBorderCrop({ ...borderCrop, top: Number(e.target.value) })}
+className="w-full accent-nude-300"
+/>
+</div>
+<div>
+<label className="font-bold text-nude-200">Borde Inferior ({borderCrop.bottom}%)</label>
+<input
+type="range" min="0" max="40"
+value={borderCrop.bottom}
+onChange={(e) => setBorderCrop({ ...borderCrop, bottom: Number(e.target.value) })}
+className="w-full accent-nude-300"
+/>
+</div>
+<div>
+<label className="font-bold text-nude-200">Borde Izquierdo ({borderCrop.left}%)</label>
+<input
+type="range" min="0" max="40"
+value={borderCrop.left}
+onChange={(e) => setBorderCrop({ ...borderCrop, left: Number(e.target.value) })}
+className="w-full accent-nude-300"
+/>
+</div>
+<div>
+<label className="font-bold text-nude-200">Borde Derecho ({borderCrop.right}%)</label>
+<input
+type="range" min="0" max="40"
+value={borderCrop.right}
+onChange={(e) => setBorderCrop({ ...borderCrop, right: Number(e.target.value) })}
+className="w-full accent-nude-300"
+/>
+</div>
+</div>
+
+<button
+onClick={handleApplyBorderCrop}
+disabled={isCroppingPost}
+className="w-full py-3.5 rounded-xl nude-btn text-xs shadow-lg"
+>
+{isCroppingPost ? "Aplicando recorte..." : "Guardar Foto Recortada ✨"}
+</button>
+</div>
+</div>
+)}
+
+{/* ========================================================== */}
+{/* VISTA PANTALLA COMPLETA DE PUBLICACIÓN */}
 {/* ========================================================== */}
 {fullscreenPost && (
 <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md overflow-y-auto p-4 flex items-center justify-center">
@@ -2621,12 +3104,25 @@ className="flex items-center gap-2.5 text-left"
 <img src={fullscreenPost.userAvatar} alt="" className="w-9 h-9 rounded-full object-cover" />
 <span className="text-sm font-bold text-white hover:underline">@{fullscreenPost.userName}</span>
 </button>
+<div className="flex items-center gap-2">
+{(fullscreenPost.userId === currentUserDoc.uid || isAdmin) && fullscreenPost.mediaType !== "video" && (
+<button
+onClick={() => {
+setBorderCrop({ top: 0, bottom: 0, left: 0, right: 0 });
+setCropModalPost(fullscreenPost);
+}}
+className="px-2.5 py-1 rounded-full bg-burgundy-800 border border-nude-300/40 text-xs text-nude-200 font-bold"
+>
+✂️ Recortar
+</button>
+)}
 <button
 onClick={() => setFullscreenPostId(null)}
 className="px-3 py-1 rounded-full nude-btn text-xs"
 >
 Cerrar ✕
 </button>
+</div>
 </div>
 
 <div className="bg-black max-h-[55vh] flex items-center justify-center overflow-hidden">
@@ -2638,7 +3134,8 @@ onDoubleClick={() => toggleLike(fullscreenPost)}
 </div>
 
 <div className="p-4 space-y-3">
-<div className="flex items-center gap-2.5">
+<div className="flex items-center justify-between flex-wrap gap-2">
+<div className="flex items-center gap-2">
 <button
 onClick={() => toggleLike(fullscreenPost)}
 className={`flex items-center gap-1.5 text-xs font-extrabold px-3.5 py-1.5 rounded-full ${
@@ -2648,7 +3145,7 @@ className={`flex items-center gap-1.5 text-xs font-extrabold px-3.5 py-1.5 round
 }`}
 >
 <span>{(fullscreenPost.likes || []).includes(currentUserDoc.uid) ? "❤️" : "🤍"}</span>
-<span>{fullscreenPost.likes?.length || 0} Me gusta</span>
+<span>{fullscreenPost.likes?.length || 0}</span>
 </button>
 
 <button
@@ -2658,6 +3155,26 @@ className="flex items-center gap-1.5 text-xs font-extrabold px-3.5 py-1.5 rounde
 <span>📤</span>
 <span>Compartir</span>
 </button>
+</div>
+
+<div className="flex items-center gap-1">
+{REACTION_EMOJIS.map((emo) => {
+const arr = Array.isArray(fullscreenPost.reactions?.[emo]) ? fullscreenPost.reactions[emo] : [];
+const iReacted = arr.includes(currentUserDoc.uid);
+return (
+<button
+key={emo}
+onClick={() => toggleReaction(fullscreenPost, emo)}
+className={`px-2 py-1 rounded-full text-xs font-extrabold flex items-center gap-1 border ${
+iReacted ? "bg-amber-300 text-[#090105]" : "bg-burgundy-900 text-white border-nude-300/25"
+}`}
+>
+<span>{emo}</span>
+{arr.length > 0 && <span>{arr.length}</span>}
+</button>
+);
+})}
+</div>
 </div>
 
 {fullscreenPost.caption && (
@@ -2708,17 +3225,27 @@ Enviar
 )}
 
 {/* ========================================================== */}
-{/* MODAL: ESTUDIO DE CREACIÓN Y EDICIÓN (FILTROS/TEXTO/CORTE) */}
+{/* MODAL: ESTUDIO DE CREACIÓN (MÚLTIPLES STICKERS MÓVILES) */}
 {/* ========================================================== */}
 {uploadModal.open && (
-<div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md overflow-y-auto p-4 flex items-center justify-center">
+<div
+className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md overflow-y-auto p-4 flex items-center justify-center"
+onMouseMove={(e) => draggingStickerId && handleStickerPointerMove(e.clientX, e.clientY)}
+onMouseUp={() => setDraggingStickerId(null)}
+onTouchMove={(e) => {
+if (draggingStickerId && e.touches[0]) {
+handleStickerPointerMove(e.touches[0].clientX, e.touches[0].clientY);
+}
+}}
+onTouchEnd={() => setDraggingStickerId(null)}
+>
 <div className="glass-card rounded-3xl max-w-md w-full p-5 border border-nude-300/40 space-y-4 my-auto">
 <div className="flex items-center justify-between">
 <h3 className="font-serif text-xl font-bold text-white">
 {uploadModal.type === "story"
 ? "Estudio de Historia Sunset"
 : uploadModal.withChallenge
-? "Subir con Reto Sunset"
+? `Reto: ${currentChallenge.title}`
 : "Estudio Fotográfico y Video"}
 </h3>
 <button
@@ -2733,9 +3260,10 @@ className="text-nude-300 hover:text-white text-sm font-bold"
 </div>
 
 <form onSubmit={handlePublishEditedMedia} className="space-y-3.5">
-{/* Previsualización Interactiva con Filtro, Recorte, Texto y Sticker en vivo */}
-<label className="block w-full cursor-pointer">
-<div className="w-full h-64 rounded-2xl border-2 border-dashed border-nude-300/50 bg-black flex items-center justify-center overflow-hidden relative">
+<div
+ref={previewBoxRef}
+className="w-full h-64 rounded-2xl border-2 border-dashed border-nude-300/50 bg-black flex items-center justify-center overflow-hidden relative"
+>
 {rawMediaUrl ? (
 <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
 {mediaType === "video" ? (
@@ -2754,11 +3282,25 @@ className={`w-full h-full ${selectedCrop.class}`}
 />
 )}
 
-{overlaySticker && (
-<span className="absolute top-3 right-3 text-4xl drop-shadow-lg pointer-events-none">
-{overlaySticker}
-</span>
-)}
+{/* Múltiples Stickers Arrastrables con el dedo o mouse */}
+{placedStickers.map((st) => (
+<div
+key={st.id}
+style={{ left: `${st.x}%`, top: `${st.y}%` }}
+onMouseDown={(e) => { e.stopPropagation(); setDraggingStickerId(st.id); }}
+onTouchStart={(e) => { e.stopPropagation(); setDraggingStickerId(st.id); }}
+className="absolute -translate-x-1/2 -translate-y-1/2 text-4xl cursor-move select-none drop-shadow-xl group"
+>
+<span>{st.emoji}</span>
+<button
+type="button"
+onClick={(e) => { e.stopPropagation(); removeStickerFromCanvas(st.id); }}
+className=" -top-2 -right-2 absolute w-4 h-4 rounded-full bg-rose-600 text-white text-[9px] flex items-center justify-center font-bold"
+>
+✕
+</button>
+</div>
+))}
 
 {overlayText.trim() && (
 <div
@@ -2774,17 +3316,14 @@ className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 px-4 py-1.5 round
 )}
 </div>
 ) : (
-<div className="text-center p-4">
+<label className="w-full h-full flex flex-col items-center justify-center cursor-pointer text-center p-4">
 <span className="text-3xl">📸 🎥 🎨</span>
 <p className="text-xs font-bold text-white mt-2">
 Toca aquí para elegir o grabar Foto / Video (Máx 15s)
 </p>
 <p className="text-[11px] text-nude-300 mt-1">
-Luego podrás aplicar filtros, recortes, textos y stickers
+Filtros, recortes, textos y múltiples stickers móviles
 </p>
-</div>
-)}
-</div>
 <input
 type="file"
 accept="image/*,video/*"
@@ -2792,14 +3331,14 @@ onChange={handleMediaFileChange}
 className="hidden"
 />
 </label>
+)}
+</div>
 
-{/* Herramientas de Edición (Aparecen cuando ya elegiste foto o video) */}
 {rawMediaUrl && (
 <div className="space-y-3 bg-burgundy-950/90 p-3.5 rounded-2xl border border-nude-300/25">
-{/* 1. Filtros de Color */}
 <div>
 <p className="text-[10px] uppercase tracking-wider text-nude-300 font-bold mb-1.5">
-1. Filtro Sunset
+1. Filtros Sunset
 </p>
 <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
 {MEDIA_FILTERS.map(f => (
@@ -2817,10 +3356,9 @@ selectedFilter.id === f.id ? "nude-btn" : "bg-burgundy-900 text-nude-200"
 </div>
 </div>
 
-{/* 2. Recorte / Encuadre */}
 <div>
 <p className="text-[10px] uppercase tracking-wider text-nude-300 font-bold mb-1.5">
-2. Recorte de Encuadre
+2. Formato de Recorte
 </p>
 <div className="grid grid-cols-4 gap-1.5">
 {CROP_RATIOS.map(cr => (
@@ -2838,14 +3376,13 @@ selectedCrop.id === cr.id ? "nude-btn" : "bg-burgundy-900 text-nude-200"
 </div>
 </div>
 
-{/* 3. Escritura sobre la Foto/Video */}
 <div className="space-y-2">
 <p className="text-[10px] uppercase tracking-wider text-nude-300 font-bold">
-3. Texto sobre la imagen y posición vertical
+3. Texto superpuesto
 </p>
 <input
 type="text"
-placeholder="Escribe texto sobre la foto/video..."
+placeholder="Escribe texto sobre la imagen..."
 value={overlayText}
 onChange={(e) => setOverlayText(e.target.value)}
 className="w-full px-3 py-2 rounded-xl bg-burgundy-900 border border-nude-300/30 text-xs text-white"
@@ -2866,9 +3403,7 @@ overlayColor.id === tc.id ? "border-amber-400 scale-110" : "border-white/30"
 ))}
 </div>
 <input
-type="range"
-min="15"
-max="85"
+type="range" min="15" max="85"
 value={overlayYPos}
 onChange={(e) => setOverlayYPos(Number(e.target.value))}
 className="flex-1 accent-nude-300"
@@ -2877,29 +3412,19 @@ className="flex-1 accent-nude-300"
 )}
 </div>
 
-{/* 4. Stickers */}
 <div>
 <p className="text-[10px] uppercase tracking-wider text-nude-300 font-bold mb-1">
-4. Sticker Decorativo
+4. Agrega varios Stickers y arrástralos con el dedo ({placedStickers.length})
 </p>
 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-<button
-type="button"
-onClick={() => setOverlaySticker("")}
-className="px-2 py-1 rounded-lg bg-burgundy-900 text-[10px] text-nude-200 font-bold"
->
-Ninguno
-</button>
 {STICKERS.map(st => (
 <button
 type="button"
 key={st}
-onClick={() => setOverlaySticker(st)}
-className={`text-lg px-2 py-0.5 rounded-lg ${
-overlaySticker === st ? "bg-nude-300" : "bg-burgundy-900"
-}`}
+onClick={() => addStickerToCanvas(st)}
+className="text-lg px-2.5 py-1 rounded-lg bg-burgundy-900 hover:bg-burgundy-800 shrink-0"
 >
-{st}
++{st}
 </button>
 ))}
 </div>
@@ -2915,7 +3440,7 @@ overlaySticker === st ? "bg-nude-300" : "bg-burgundy-900"
 
 <input
 type="text"
-placeholder="Pie de foto o descripción para el muro..."
+placeholder="Pie de foto o descripción..."
 value={caption}
 onChange={(e) => setCaption(e.target.value)}
 className="w-full px-4 py-2.5 rounded-xl bg-burgundy-950 border border-nude-300/35 text-xs text-white"
@@ -2926,7 +3451,7 @@ type="submit"
 disabled={!rawMediaUrl || isSubmitting}
 className="w-full py-3.5 rounded-xl nude-btn text-sm disabled:opacity-40 shadow-lg"
 >
-{isSubmitting ? "Procesando y Publicando..." : "Publicar Ahora ✨"}
+{isSubmitting ? "Publicando..." : "Publicar Ahora ✨"}
 </button>
 </form>
 </div>
@@ -2938,7 +3463,7 @@ className="w-full py-3.5 rounded-xl nude-btn text-sm disabled:opacity-40 shadow-
 <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
 <div className="glass-card rounded-3xl max-w-sm w-full p-6 border border-nude-300/40 space-y-4">
 <div className="flex items-center justify-between">
-<h3 className="font-serif text-xl font-bold text-white">Compartir Publicación</h3>
+<h3 className="font-serif text-xl font-bold text-white">Compartir</h3>
 <button onClick={() => setShareModalPost(null)} className="text-nude-300 font-bold">✕</button>
 </div>
 
@@ -2953,13 +3478,16 @@ className="w-full py-3 px-4 rounded-2xl nude-btn text-xs flex items-center justi
 onClick={() => handleExternalShare(shareModalPost)}
 className="w-full py-3 px-4 rounded-2xl bg-burgundy-800 border border-nude-300/40 text-white font-bold text-xs flex items-center justify-center gap-2"
 >
-📲 Compartir fuera de la App (WhatsApp / Más)
+📲 Compartir fuera de la App
 </button>
 
 <div className="pt-2 border-t border-nude-300/20">
-<p className="text-xs font-bold text-nude-300 mb-2">Enviar al chat privado de:</p>
+<p className="text-xs font-bold text-nude-300 mb-2">Enviar al chat privado de un Amigo:</p>
 <div className="max-h-44 overflow-y-auto space-y-2 no-scrollbar">
-{users.filter(u => u.uid !== currentUserDoc.uid && u.username).map(u => (
+{myFriendUsers.length === 0 ? (
+<p className="text-[11px] text-nude-300/70">Agrega amigos en el Buscador para enviarles por privado.</p>
+) : (
+myFriendUsers.map(u => (
 <button
 key={u.uid}
 onClick={() => handleSendPostToChat("private", u)}
@@ -2971,14 +3499,15 @@ className="w-full p-2.5 rounded-xl bg-burgundy-950 hover:bg-burgundy-900 flex it
 </div>
 <span className="text-xs text-nude-300 font-bold">Enviar →</span>
 </button>
-))}
+))
+)}
 </div>
 </div>
 </div>
 </div>
 )}
 
-{/* MODAL EDITAR PUBLICACIÓN (PROPIA O SUPER ADMIN) */}
+{/* MODAL EDITAR PUBLICACIÓN */}
 {adminEditPost && (
 <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
 <div className="glass-card rounded-3xl max-w-sm w-full p-6 border border-nude-300/40 space-y-4">
@@ -3147,7 +3676,7 @@ activeTab === "search" && !viewedProfileUser ? "text-nude-300" : "text-white/60"
 }`}
 >
 <span className="text-lg">🔍</span>
-<span>Buscar</span>
+<span>Amigos</span>
 </button>
 
 <button
